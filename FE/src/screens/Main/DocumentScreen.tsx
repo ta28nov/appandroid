@@ -20,11 +20,16 @@ import { useTheme } from '../../hooks/useTheme';
 import { COLORS } from '../../styles/theme';
 import { FONT_SIZE, FONT_WEIGHT, SPACING, SHADOW } from '../../styles/globalStyles';
 import { ROUTES, DOCUMENT_TYPES } from '../../utils/constants';
-import { mockDocuments } from '../../utils/mockData';
+import apiClient from '../../services/api';
 import AdvancedSearchBar from '../../components/common/AdvancedSearchBar';
 import AnimatedButton from '../../components/common/AnimatedButton';
 import EmptyStateComponent from '../../components/common/EmptyStateComponent';
 import { DocumentStackParamList } from '../../navigation/types';
+import { apiDeleteDocument, apiShareDocument, apiToggleFavoriteDocument, apiUploadDocument } from '../../services/api';
+import { Snackbar } from 'react-native-paper';
+import { Modal, Portal, TextInput, Button, HelperText, Chip, Menu, Provider as PaperProvider } from 'react-native-paper';
+import * as DocumentPicker from 'expo-document-picker';
+import type { DocumentPickerAsset } from 'expo-document-picker';
 
 // Interface định nghĩa cấu trúc dữ liệu tài liệu
 // Mô tả chi tiết các thuộc tính cần thiết của một tài liệu
@@ -73,28 +78,44 @@ const DocumentScreen: React.FC = () => {
   const [loading, setLoading] = useState(true); // Trạng thái đang tải dữ liệu
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list'); // Chế độ hiển thị: danh sách hoặc lưới
   const [favorites, setFavorites] = useState<string[]>([]); // Danh sách ID các tài liệu được yêu thích
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; type?: 'error' | 'success' }>({ visible: false, message: '' });
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [form, setForm] = useState<{
+    title: string;
+    description: string;
+    type: string;
+    tags: string;
+    file: DocumentPickerAsset | null;
+  }>({
+    title: '',
+    description: '',
+    type: '',
+    tags: '',
+    file: null,
+  });
+  const [formError, setFormError] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [typeMenuVisible, setTypeMenuVisible] = useState(false);
   
+  // Fetch documents from backend
+  const fetchDocuments = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/documents');
+      // Assuming API returns an array of documents in res.data
+      setDocuments(res.data || []);
+      setFilteredDocuments(res.data || []);
+    } catch (error) {
+      console.error('Lỗi khi tải tài liệu:', error);
+      setDocuments([]);
+      setFilteredDocuments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Khởi tạo dữ liệu tài liệu khi component được mount
   useEffect(() => {
-    // Giả lập việc tải dữ liệu từ API
-    const fetchDocuments = async () => {
-      setLoading(true); // Bắt đầu hiển thị trạng thái loading
-      try {
-        // Trong ứng dụng thực tế, đây sẽ là một cuộc gọi API
-        // Giả lập độ trễ mạng 1 giây
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Tải dữ liệu mẫu từ mockData
-        setDocuments(mockDocuments);
-        setFilteredDocuments(mockDocuments);
-      } catch (error) {
-        console.error('Lỗi khi tải tài liệu:', error);
-      } finally {
-        setLoading(false); // Kết thúc trạng thái loading
-      }
-    };
-    
-    // Gọi hàm fetch dữ liệu
     fetchDocuments();
   }, []); // Chỉ chạy một lần khi component mount
   
@@ -138,15 +159,9 @@ const DocumentScreen: React.FC = () => {
   
   // Xử lý làm mới danh sách tài liệu (khi người dùng kéo xuống để refresh)
   const handleRefresh = async () => {
-    setRefreshing(true); // Hiển thị animation refresh
-    
-    // Giả lập việc tải dữ liệu mới từ server (độ trễ 1.5 giây)
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Trong ứng dụng thực tế, đây sẽ là một cuộc gọi API để lấy dữ liệu mới nhất
-    setDocuments(mockDocuments);
-    
-    setRefreshing(false); // Kết thúc trạng thái refresh
+    setRefreshing(true);
+    await fetchDocuments();
+    setRefreshing(false);
   };
   
   // Chuyển đến trang chi tiết khi người dùng nhấn vào một tài liệu
@@ -155,67 +170,100 @@ const DocumentScreen: React.FC = () => {
     navigation.navigate(ROUTES.MAIN.DOCUMENT_DETAIL, { documentId: document.id });
   };
   
-  // Thêm/xóa tài liệu khỏi danh sách yêu thích
-  const toggleFavorite = (documentId: string) => {
-    setFavorites(prev => {
-      if (prev.includes(documentId)) {
-        // Nếu ID đã tồn tại trong danh sách, loại bỏ nó (bỏ yêu thích)
-        return prev.filter(id => id !== documentId);
-      } else {
-        // Nếu ID chưa có trong danh sách, thêm vào (đánh dấu yêu thích)
-        return [...prev, documentId];
-      }
-    });
+  // Thêm/xóa tài liệu khỏi danh sách yêu thích (gọi API BE)
+  const toggleFavorite = async (documentId: string) => {
+    try {
+      await apiToggleFavoriteDocument(documentId);
+      fetchDocuments();
+      setSnackbar({ visible: true, message: 'Cập nhật trạng thái yêu thích thành công!', type: 'success' });
+    } catch (error) {
+      setSnackbar({ visible: true, message: 'Không thể cập nhật trạng thái yêu thích.', type: 'error' });
+    }
   };
   
-  // Xử lý chia sẻ tài liệu
-  const handleShareDocument = (document: Document) => {
-    // Trong ứng dụng thực tế, đây sẽ mở hộp thoại chia sẻ với các tùy chọn
-    Alert.alert(
-      'Chia sẻ tài liệu', // Tiêu đề hộp thoại
-      `Bạn muốn chia sẻ "${document.title}" với ai?`, // Nội dung hộp thoại
-      [
-        { text: 'Hủy', style: 'cancel' }, // Nút hủy
-        { text: 'Chia sẻ', onPress: () => console.log('Đã chia sẻ tài liệu', document.id) }, // Nút xác nhận
-      ]
-    );
+  // Xử lý chia sẻ tài liệu (gọi API BE)
+  const handleShareDocument = async (document: Document) => {
+    const shareData = { email: 'test@example.com' };
+    try {
+      await apiShareDocument(document.id, shareData);
+      setSnackbar({ visible: true, message: 'Tài liệu đã được chia sẻ!', type: 'success' });
+      fetchDocuments();
+    } catch (error) {
+      setSnackbar({ visible: true, message: 'Không thể chia sẻ tài liệu.', type: 'error' });
+    }
   };
   
-  // Xử lý xóa tài liệu
+  // Xử lý xóa tài liệu (gọi API BE)
   const handleDeleteDocument = (document: Document) => {
-    // Hiển thị hộp thoại xác nhận trước khi xóa
     Alert.alert(
-      'Xóa tài liệu', // Tiêu đề hộp thoại
-      `Bạn có chắc chắn muốn xóa "${document.title}"?`, // Nội dung hộp thoại
+      'Xóa tài liệu',
+      `Bạn có chắc chắn muốn xóa "${document.title}"?`,
       [
-        { text: 'Hủy', style: 'cancel' }, // Nút hủy
+        { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Xóa', 
-          style: 'destructive', // Style màu đỏ cảnh báo
-          onPress: () => {
-            // Cập nhật state, loại bỏ tài liệu khỏi danh sách
-            setDocuments(prev => prev.filter(doc => doc.id !== document.id));
-            // Trong ứng dụng thực tế, đây sẽ là một cuộc gọi API để xóa tài liệu
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiDeleteDocument(document.id);
+              fetchDocuments();
+              setSnackbar({ visible: true, message: 'Đã xóa tài liệu!', type: 'success' });
+            } catch (error) {
+              setSnackbar({ visible: true, message: 'Không thể xóa tài liệu.', type: 'error' });
+            }
           },
         },
       ]
     );
   };
   
-  // Xử lý tạo tài liệu mới
-  const handleCreateDocument = () => {
-    // Trong ứng dụng thực tế, đây sẽ mở form tạo tài liệu mới
-    // Hiện tại chỉ hiển thị một hộp thoại với các tùy chọn
-    Alert.alert(
-      'Tạo tài liệu mới', // Tiêu đề hộp thoại
-      'Chọn loại tài liệu bạn muốn tạo:', // Nội dung hộp thoại
-      [
-        { text: 'Hủy', style: 'cancel' }, // Nút hủy
-        { text: 'Tài liệu văn bản', onPress: () => console.log('Tạo tài liệu văn bản') },
-        { text: 'Bảng tính', onPress: () => console.log('Tạo bảng tính') },
-        { text: 'Bản trình bày', onPress: () => console.log('Tạo bản trình bày') },
-      ]
-    );
+  // Mở modal tạo mới
+  const openCreateModal = () => {
+    setForm({ title: '', description: '', type: '', tags: '', file: null });
+    setFormError('');
+    setCreateModalVisible(true);
+  };
+  // Đóng modal tạo mới
+  const closeCreateModal = () => {
+    setCreateModalVisible(false);
+    setFormError('');
+  };
+  // Chọn file
+  const handlePickFile = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+    if ('type' in result && result.type === 'success' && result.assets && result.assets.length > 0) {
+      setForm(f => ({ ...f, file: result.assets[0] }));
+    }
+  };
+  // Submit tạo mới
+  const handleCreateSubmit = async () => {
+    setFormError('');
+    if (!form.title.trim() || !form.type || !form.file) {
+      setFormError('Vui lòng nhập đầy đủ tiêu đề, loại tài liệu và chọn file.');
+      return;
+    }
+    setCreateLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', form.title);
+      formData.append('description', form.description);
+      formData.append('type', form.type);
+      formData.append('tags', form.tags);
+      if (!form.file) return;
+      formData.append('file', {
+        uri: form.file.uri,
+        name: form.file.name,
+        type: form.file.mimeType || 'application/octet-stream',
+      } as any);
+      await apiUploadDocument(formData);
+      setSnackbar({ visible: true, message: 'Tạo tài liệu thành công!', type: 'success' });
+      closeCreateModal();
+      fetchDocuments();
+    } catch (error) {
+      setFormError('Tạo tài liệu thất bại.');
+    } finally {
+      setCreateLoading(false);
+    }
   };
   
   // Lấy biểu tượng và màu sắc cho loại tài liệu
@@ -539,7 +587,7 @@ const DocumentScreen: React.FC = () => {
           />
         }
         buttonTitle="Tạo tài liệu mới" // Tiêu đề nút hành động
-        onButtonPress={handleCreateDocument} // Xử lý khi nhấn nút
+        onButtonPress={openCreateModal} // Xử lý khi nhấn nút
       />
     );
   };
@@ -548,7 +596,7 @@ const DocumentScreen: React.FC = () => {
   const renderFAB = () => (
     <TouchableOpacity
       style={[styles.fab, { backgroundColor: theme.colors.primary }]} // Sử dụng màu chính của theme
-      onPress={handleCreateDocument} // Xử lý khi nhấn nút
+      onPress={openCreateModal} // Xử lý khi nhấn nút
     >
       <Icon name="plus" size={24} color="#FFFFFF" />
     </TouchableOpacity>
@@ -556,57 +604,116 @@ const DocumentScreen: React.FC = () => {
   
   // Render giao diện chính của màn hình
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Thanh tìm kiếm - Search bar component for document filtering */}
-      <View style={styles.searchBarContainer}>
-        <AdvancedSearchBar
-          placeholder="Tìm kiếm tài liệu..." // Placeholder text for search input
-          value={searchQuery} // Current search query state value
-          onChangeText={setSearchQuery} // Updates search query when user types
-          showFilterButton={true} // Enables advanced filtering options button
-          filterOptions={[
-            // Advanced filter options configuration
-            { id: 'type', label: 'Loại tài liệu', value: '', type: 'select', options: [
-              { label: 'PDF', value: 'pdf' },
-              { label: 'Word', value: 'word' },
-              { label: 'Excel', value: 'excel' },
-              { label: 'PowerPoint', value: 'powerpoint' },
-            ]},
-            { id: 'date', label: 'Ngày tạo', value: '', type: 'date' },
-          ]}
-        />
-      </View>
-      
-      {/* Thanh lọc danh mục - Category filter bar for quick document type filtering */}
-      {renderCategoryBar()}
-      
-      {/* Danh sách tài liệu - Main document list with adaptive rendering based on view mode */}
-      <FlatList
-        data={filteredDocuments} // Documents array after applying search and category filters
-        renderItem={viewMode === 'list' ? renderListItem : renderGridItem} // Conditional rendering based on selected view mode
-        keyExtractor={item => item.id} // Unique key for optimized list rendering
-        contentContainerStyle={[
-          styles.listContent,
-          viewMode === 'grid' && styles.gridContent, // Apply grid-specific styling when in grid mode
-        ]}
-        numColumns={viewMode === 'grid' ? 2 : 1} // Adaptive column count based on view mode
-        key={viewMode} // Forces FlatList re-creation when view mode changes for proper re-rendering
-        showsVerticalScrollIndicator={false} // Hides default scroll indicator for cleaner UI
-        refreshControl={
-          // Pull-to-refresh functionality for updating document list
-          <RefreshControl
-            refreshing={refreshing} // Controls refresh spinner visibility
-            onRefresh={handleRefresh} // Triggers data reload when pulled
-            colors={[theme.colors.primary]} // Theme-consistent loading indicator color
-            tintColor={theme.colors.primary} // Match tint color with theme
+    <PaperProvider>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Thanh tìm kiếm - Search bar component for document filtering */}
+        <View style={styles.searchBarContainer}>
+          <AdvancedSearchBar
+            placeholder="Tìm kiếm tài liệu..." // Placeholder text for search input
+            value={searchQuery} // Current search query state value
+            onChangeText={setSearchQuery} // Updates search query when user types
+            showFilterButton={true} // Enables advanced filtering options button
+            filterOptions={[
+              // Advanced filter options configuration
+              { id: 'type', label: 'Loại tài liệu', value: '', type: 'select', options: [
+                { label: 'PDF', value: 'pdf' },
+                { label: 'Word', value: 'word' },
+                { label: 'Excel', value: 'excel' },
+                { label: 'PowerPoint', value: 'powerpoint' },
+              ]},
+              { id: 'date', label: 'Ngày tạo', value: '', type: 'date' },
+            ]}
           />
-        }
-        ListEmptyComponent={renderEmptyState} // Display user-friendly message when no documents match filters
-      />
-      
-      {/* Nút thêm tài liệu - Floating action button for document creation */}
-      {renderFAB()}
-    </View>
+        </View>
+        
+        {/* Thanh lọc danh mục - Category filter bar for quick document type filtering */}
+        {renderCategoryBar()}
+        
+        {/* Danh sách tài liệu - Main document list with adaptive rendering based on view mode */}
+        <FlatList
+          data={filteredDocuments} // Documents array after applying search and category filters
+          renderItem={viewMode === 'list' ? renderListItem : renderGridItem} // Conditional rendering based on selected view mode
+          keyExtractor={item => item.id} // Unique key for optimized list rendering
+          contentContainerStyle={[
+            styles.listContent,
+            viewMode === 'grid' && styles.gridContent, // Apply grid-specific styling when in grid mode
+          ]}
+          numColumns={viewMode === 'grid' ? 2 : 1} // Adaptive column count based on view mode
+          key={viewMode} // Forces FlatList re-creation when view mode changes for proper re-rendering
+          showsVerticalScrollIndicator={false} // Hides default scroll indicator for cleaner UI
+          refreshControl={
+            // Pull-to-refresh functionality for updating document list
+            <RefreshControl
+              refreshing={refreshing} // Controls refresh spinner visibility
+              onRefresh={handleRefresh} // Triggers data reload when pulled
+              colors={[theme.colors.primary]} // Theme-consistent loading indicator color
+              tintColor={theme.colors.primary} // Match tint color with theme
+            />
+          }
+          ListEmptyComponent={renderEmptyState} // Display user-friendly message when no documents match filters
+        />
+        
+        {/* Nút thêm tài liệu - Floating action button for document creation */}
+        {renderFAB()}
+        {/* Modal tạo mới tài liệu */}
+        <Portal>
+          <Modal visible={createModalVisible} onDismiss={closeCreateModal} contentContainerStyle={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Tạo tài liệu mới</Text>
+            <TextInput
+              label="Tiêu đề *"
+              value={form.title}
+              onChangeText={text => setForm(f => ({ ...f, title: text }))}
+              style={styles.input}
+              mode="outlined"
+            />
+            <TextInput
+              label="Mô tả"
+              value={form.description}
+              onChangeText={text => setForm(f => ({ ...f, description: text }))}
+              style={styles.input}
+              mode="outlined"
+              multiline
+            />
+            <Menu
+              visible={typeMenuVisible}
+              onDismiss={() => setTypeMenuVisible(false)}
+              anchor={
+                <Button mode="outlined" onPress={() => setTypeMenuVisible(true)} style={styles.input}>
+                  {form.type ? documentTypeLabel(form.type) : 'Chọn loại tài liệu *'}
+                </Button>
+              }
+            >
+              {Object.entries(DOCUMENT_TYPES).map(([key, value]) => (
+                <Menu.Item key={key} onPress={() => { setForm(f => ({ ...f, type: value })); setTypeMenuVisible(false); }} title={documentTypeLabel(value)} />
+              ))}
+            </Menu>
+            <TextInput
+              label="Tags (cách nhau bởi dấu phẩy)"
+              value={form.tags}
+              onChangeText={text => setForm(f => ({ ...f, tags: text }))}
+              style={styles.input}
+              mode="outlined"
+            />
+            <Button mode="outlined" onPress={handlePickFile} style={styles.input} icon="file-upload">
+              {form.file ? form.file.name : 'Chọn file *'}
+            </Button>
+            {formError ? <HelperText type="error" visible>{formError}</HelperText> : null}
+            <Button mode="contained" onPress={handleCreateSubmit} loading={createLoading} disabled={createLoading} style={{ marginTop: 12 }}>
+              Tạo mới
+            </Button>
+          </Modal>
+        </Portal>
+        {/* Snackbar thông báo */}
+        <Snackbar
+          visible={snackbar.visible}
+          onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+          duration={2500}
+          style={{ backgroundColor: snackbar.type === 'error' ? '#D32F2F' : theme.colors.primary }}
+        >
+          {snackbar.message}
+        </Snackbar>
+      </View>
+    </PaperProvider>
   );
 };
 
@@ -760,6 +867,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOW.medium,
   },
+  modalContainer: {
+    backgroundColor: '#fff',
+    margin: 24,
+    borderRadius: 12,
+    padding: 20,
+    elevation: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  input: {
+    marginBottom: 12,
+  },
 });
 
-export default DocumentScreen; 
+// Helper để lấy label loại tài liệu
+function documentTypeLabel(type: string) {
+  switch (type) {
+    case DOCUMENT_TYPES.PDF: return 'PDF';
+    case DOCUMENT_TYPES.DOCX:
+    case DOCUMENT_TYPES.DOC: return 'Word';
+    case DOCUMENT_TYPES.XLSX:
+    case DOCUMENT_TYPES.XLS: return 'Excel';
+    case DOCUMENT_TYPES.PPTX:
+    case DOCUMENT_TYPES.PPT: return 'PowerPoint';
+    case DOCUMENT_TYPES.IMAGE: return 'Ảnh';
+    case DOCUMENT_TYPES.TEXT: return 'Văn bản';
+    default: return type;
+  }
+}
+
+export default DocumentScreen;

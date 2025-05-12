@@ -1,0 +1,1 @@
+export const API_BASE_URL = 'http://10.0.2.2:5001/api'; // Sử dụng 10.0.2.2 cho máy ảo Android 

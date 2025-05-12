@@ -62,7 +62,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (token) {
           try {
             const userResponse = await apiGetMe();
-            storedUser = userResponse.data;
+            // Patch: handle both { data: user } and { data: { ...user } }
+            let storedUser = null;
+            if (userResponse.data?.data) {
+              if (userResponse.data.data.id || userResponse.data.data._id) {
+                storedUser = userResponse.data.data;
+              } else if (typeof userResponse.data.data === 'object') {
+                storedUser = userResponse.data.data;
+              }
+            }
             if (storedUser) {
               validToken = true;
               await storeUserData(storedUser);
@@ -70,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.warn('[AuthContext] Token found but failed to get user data from API.');
             }
           } catch (apiError: any) {
-            console.warn('[AuthContext] Failed to validate token or get user:', apiError.response?.data || apiError.message);
+            console.warn('[AuthContext] Failed to validate token or get user:', apiError.response?.data?.error?.message || apiError.message);
           }
         }
 
@@ -111,7 +119,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const loginResponse = await apiLogin({ email, password });
-      const token = loginResponse.data?.token;
+      const token = loginResponse.data?.data?.token;
 
       if (!token) {
         throw new Error('Login failed: No token received');
@@ -119,21 +127,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await setToken(token);
 
       const userResponse = await apiGetMe();
-      const loggedInUser: User = userResponse.data;
-
+      // Patch: handle both { data: user } and { data: { ...user } }
+      let loggedInUser = null;
+      if (userResponse.data?.data) {
+        if (userResponse.data.data.id || userResponse.data.data._id) {
+          loggedInUser = userResponse.data.data;
+        } else if (typeof userResponse.data.data === 'object') {
+          loggedInUser = userResponse.data.data;
+        }
+      }
       if (!loggedInUser) {
         throw new Error('Login failed: Could not fetch user data');
       }
-
       setUser(loggedInUser);
       await storeUserData(loggedInUser);
 
     } catch (error: any) {
-      console.error('[AuthContext] Login failed', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.error?.message || error.message;
+      console.error('[AuthContext] Login failed', errorMsg);
       await removeToken();
       await storeUserData(null);
       setUser(null);
-      throw error;
+      throw new Error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -145,11 +160,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await apiRegister({ name, email, password });
       await login(email, password);
     } catch (error: any) {
-      console.error('[AuthContext] Registration failed', error.response?.data || error.message);
+      const errorMsg = error.response?.data?.error?.message || error.message;
+      console.error('[AuthContext] Registration failed', errorMsg);
       setUser(null);
       await removeToken();
       await storeUserData(null);
-      throw error;
+      throw new Error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -178,7 +194,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const response = await apiUpdateProfile(userData);
-      const updatedUserFromServer: User = response.data;
+      const updatedUserFromServer: User = response.data?.data;
 
       if (!updatedUserFromServer) {
           throw new Error("Profile update failed: No updated user data received from server.");
@@ -189,8 +205,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await storeUserData(mergedUser);
 
     } catch (error: any) {
-      console.error('[AuthContext] Profile update failed', error.response?.data || error.message);
-      throw error;
+      const errorMsg = error.response?.data?.error?.message || error.message;
+      console.error('[AuthContext] Profile update failed', errorMsg);
+      throw new Error(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -211,4 +228,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

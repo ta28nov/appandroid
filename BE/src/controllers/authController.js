@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken'); // Chúng ta cần tạo tiện ích này
+const logger = require('../utils/logger');
 
 // @desc    Đăng ký người dùng mới
 // @route   POST /api/auth/register
@@ -33,9 +34,13 @@ const registerUser = asyncHandler(async (req, res) => {
     delete userResponse.password;
 
     res.status(201).json({
-      ...userResponse,
-      token: generateToken(user._id),
+      data: {
+        ...userResponse,
+        token: generateToken(user._id),
+      }
     });
+
+    logger.info(`User registered: ${email}`);
   } else {
     res.status(400);
     throw new Error('Invalid user data');
@@ -62,9 +67,13 @@ const loginUser = asyncHandler(async (req, res) => {
     delete userResponse.password; // Xóa hash mật khẩu trước khi gửi
 
     res.json({
-      ...userResponse,
-      token: generateToken(user._id),
+      data: {
+        ...userResponse,
+        token: generateToken(user._id),
+      }
     });
+
+    logger.info(`User login: ${email}`);
   } else {
     res.status(401); // Không được phép
     throw new Error('Invalid email or password');
@@ -77,7 +86,7 @@ const loginUser = asyncHandler(async (req, res) => {
 const getMe = asyncHandler(async (req, res) => {
   // Người dùng được gắn vào đối tượng req bởi middleware `protect`
   if (req.user) {
-    res.json(req.user);
+    res.json({ data: req.user }); // Đáp ứng frontend: trả về user trong trường data
   } else {
     res.status(404);
     throw new Error('User not found');
@@ -88,4 +97,4 @@ module.exports = {
   registerUser,
   loginUser,
   getMe,
-}; 
+};

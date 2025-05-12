@@ -7,16 +7,17 @@ const notFound = (req, res, next) => {
 
 // Middleware để xử lý các lỗi được ném ra trong các route handler
 const errorHandler = (err, req, res, next) => {
-  // Đôi khi lỗi đi kèm với statusCode, nếu không thì mặc định là 500 (Lỗi máy chủ nội bộ)
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   res.status(statusCode);
-
-  // Phản hồi bằng JSON chứa thông báo lỗi
-  // Trong môi trường production, bạn có thể không muốn gửi dấu vết ngăn xếp (stack trace)
   res.json({
-    message: err.message,
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+    success: false,
+    data: null,
+    error: {
+      message: err.message,
+      code: statusCode,
+      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    },
   });
 };
 
-module.exports = { notFound, errorHandler }; 
+module.exports = { notFound, errorHandler };

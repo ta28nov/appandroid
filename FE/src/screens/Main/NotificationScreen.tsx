@@ -14,7 +14,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../../hooks/useTheme';
 import { COLORS } from '../../styles/theme';
 import { FONT_SIZE, FONT_WEIGHT, SPACING, SHADOW } from '../../styles/globalStyles';
-import { mockNotifications } from '../../utils/mockData';
+import { Snackbar, Provider as PaperProvider, Button } from 'react-native-paper';
+import { apiGetNotifications, apiMarkNotificationsRead, apiMarkAllNotificationsRead, apiDeleteAllNotifications } from '../../services/api';
 import AdvancedSearchBar from '../../components/common/AdvancedSearchBar';
 import AnimatedButton from '../../components/common/AnimatedButton';
 import EmptyStateComponent from '../../components/common/EmptyStateComponent';
@@ -51,32 +52,25 @@ const NotificationScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; type?: 'error' | 'success' }>({ visible: false, message: '' });
   
-  // Lấy dữ liệu thông báo
+  // Lấy dữ liệu thông báo từ API
+  const fetchNotifications = async () => {
+    setLoading(true);
+    try {
+      const res = await apiGetNotifications();
+      setNotifications(res.data || []);
+      setFilteredNotifications(res.data || []);
+    } catch (error) {
+      setSnackbar({ visible: true, message: 'Lỗi khi tải thông báo', type: 'error' });
+      setNotifications([]);
+      setFilteredNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   useEffect(() => {
-    // Giả lập việc gọi API để lấy dữ liệu
-    const fetchNotifications = async () => {
-      setLoading(true);
-      try {
-        // Trong môi trường thực tế, đây sẽ là một cuộc gọi API
-        // Giả lập độ trễ mạng
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Lấy dữ liệu từ mockData và đổi tên trường 'time' thành 'createdAt'
-        const adaptedNotifications = mockNotifications.map(notif => ({
-          ...notif,
-          createdAt: notif.time // Rename 'time' to 'createdAt'
-        }));
-        
-        setNotifications(adaptedNotifications);
-        setFilteredNotifications(adaptedNotifications);
-      } catch (error) {
-        console.error('Lỗi khi tải thông báo:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchNotifications();
   }, []);
   
@@ -108,14 +102,16 @@ const NotificationScreen: React.FC = () => {
   };
   
   // Xử lý khi nhấn vào thông báo
-  const handleNotificationPress = (notification: Notification) => {
-    // Đánh dấu thông báo đã đọc
-    setNotifications(prev =>
-      prev.map(item =>
-        item.id === notification.id ? { ...item, read: true } : item
-      )
-    );
-    
+  const handleNotificationPress = async (notification: Notification) => {
+    // Đánh dấu đã đọc nếu chưa đọc
+    if (!notification.read) {
+      try {
+        await apiMarkNotificationsRead([notification.id]);
+        fetchNotifications();
+      } catch (error) {
+        setSnackbar({ visible: true, message: 'Không thể đánh dấu đã đọc', type: 'error' });
+      }
+    }
     // Điều hướng dựa trên loại thông báo
     switch (notification.type) {
       case 'task':
@@ -139,33 +135,31 @@ const NotificationScreen: React.FC = () => {
   };
   
   // Đánh dấu tất cả thông báo đã đọc
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(item => ({ ...item, read: true }))
-    );
+  const handleMarkAllAsRead = async () => {
+    try {
+      await apiMarkAllNotificationsRead();
+      setSnackbar({ visible: true, message: 'Đã đánh dấu tất cả đã đọc', type: 'success' });
+      fetchNotifications();
+    } catch (error) {
+      setSnackbar({ visible: true, message: 'Không thể đánh dấu tất cả đã đọc', type: 'error' });
+    }
   };
   
   // Xóa tất cả thông báo
-  const handleClearAll = () => {
-    setNotifications([]);
-    setFilteredNotifications([]);
+  const handleClearAll = async () => {
+    try {
+      await apiDeleteAllNotifications();
+      setSnackbar({ visible: true, message: 'Đã xóa tất cả thông báo', type: 'success' });
+      fetchNotifications();
+    } catch (error) {
+      setSnackbar({ visible: true, message: 'Không thể xóa tất cả thông báo', type: 'error' });
+    }
   };
   
   // Xử lý refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    
-    // Giả lập việc làm mới dữ liệu
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Trong môi trường thực tế, đây sẽ là một cuộc gọi API để lấy dữ liệu mới
-    const refreshedAdaptedNotifications = mockNotifications.map(notif => ({
-      ...notif,
-      createdAt: notif.time // Rename 'time' to 'createdAt'
-    }));
-    setNotifications(refreshedAdaptedNotifications);
-    setFilteredNotifications(refreshedAdaptedNotifications);
-    
+    await fetchNotifications();
     setRefreshing(false);
   };
   
@@ -361,56 +355,66 @@ const NotificationScreen: React.FC = () => {
   };
   
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Thanh tìm kiếm */}
-      <View style={styles.searchBarContainer}>
-        <AdvancedSearchBar
-          placeholder="Tìm kiếm thông báo..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          showFilterButton={false}
-        />
-      </View>
-      
-      {/* Thanh lọc theo loại thông báo */}
-      {renderFilterBar()}
-      
-      {/* Phần đầu với các nút hành động */}
-      {filteredNotifications.length > 0 && (
-        <View style={styles.actionsContainer}>
-          <AnimatedButton
-            title="Đánh dấu tất cả đã đọc"
-            onPress={handleMarkAllAsRead}
-            variant="text"
-            style={styles.actionButton}
-          />
-          <AnimatedButton
-            title="Xóa tất cả"
-            onPress={handleClearAll}
-            variant="text"
-            style={styles.actionButton}
+    <PaperProvider>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Thanh tìm kiếm */}
+        <View style={styles.searchBarContainer}>
+          <AdvancedSearchBar
+            placeholder="Tìm kiếm thông báo..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            showFilterButton={false}
           />
         </View>
-      )}
-      
-      {/* Danh sách thông báo */}
-      <FlatList
-        data={filteredNotifications}
-        renderItem={renderNotificationItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ListEmptyComponent={renderEmptyState}
-      />
-    </View>
+        
+        {/* Thanh lọc theo loại thông báo */}
+        {renderFilterBar()}
+        
+        {/* Phần đầu với các nút hành động */}
+        {filteredNotifications.length > 0 && (
+          <View style={styles.actionsContainer}>
+            <AnimatedButton
+              title="Đánh dấu tất cả đã đọc"
+              onPress={handleMarkAllAsRead}
+              variant="text"
+              style={styles.actionButton}
+            />
+            <AnimatedButton
+              title="Xóa tất cả"
+              onPress={handleClearAll}
+              variant="text"
+              style={styles.actionButton}
+            />
+          </View>
+        )}
+        
+        {/* Danh sách thông báo */}
+        <FlatList
+          data={filteredNotifications}
+          renderItem={renderNotificationItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ListEmptyComponent={renderEmptyState}
+        />
+        <Snackbar
+          visible={snackbar.visible}
+          onDismiss={() => setSnackbar({ ...snackbar, visible: false })}
+          duration={2500}
+          style={{ backgroundColor: snackbar.type === 'error' ? '#D32F2F' : theme.colors.primary }}
+        >
+          {snackbar.message}
+        </Snackbar>
+      </View>
+    </PaperProvider>
   );
 };
 

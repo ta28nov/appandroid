@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { LogBox, Text, View } from 'react-native';
+import { LogBox, Text, View, useColorScheme } from 'react-native';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CustomLightTheme } from './src/styles/theme';
+import { StatusBar } from 'expo-status-bar';
 
 // Ignore specific warnings that might appear during development
 LogBox.ignoreLogs([
@@ -39,14 +40,17 @@ const AppWrapper = () => {
 };
 
 export default function App() {
+  const colorScheme = useColorScheme();
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <StatusBar style="auto" />
             <AppWrapper />
-          </AuthProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -2,6 +2,26 @@ const asyncHandler = require('express-async-handler');
 const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 
+// Gửi notification real-time qua Socket.IO nếu có
+function emitNotificationToUser(req, notification) {
+  try {
+    const io = req.app.get('io');
+    const userSocketMap = req.app.get('userSocketMap');
+    const socketId = userSocketMap.get(notification.userId.toString());
+    if (io && socketId) {
+      io.to(socketId).emit('notification', notification);
+    }
+  } catch (err) {
+    // Không log lỗi nhỏ ở production
+  }
+}
+
+const createNotificationAndEmit = async (req, notificationData) => {
+  const notification = await Notification.create(notificationData);
+  emitNotificationToUser(req, notification.toObject());
+  return notification;
+};
+
 // @desc    Lấy thông báo cho người dùng đã đăng nhập
 // @route   GET /api/notifications
 // @access  Riêng tư
@@ -140,4 +160,5 @@ module.exports = {
     markAllNotificationsAsRead,
     clearAllNotifications,
     deleteNotification,
-}; 
+    createNotificationAndEmit,
+};

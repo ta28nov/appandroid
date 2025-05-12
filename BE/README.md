@@ -10,6 +10,7 @@ Backend API cho ứng dụng Không gian làm việc số, được xây dựng 
 - [Biến môi trường](#biến-môi-trường)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Tài liệu API](#tài-liệu-api)
+- [Tài khoản mẫu để test](#tài-khoản-mẫu-để-test)
 
 ## Yêu cầu
 
@@ -87,86 +88,87 @@ BE/
 └── README.md         # Tài liệu hướng dẫn
 ```
 
-## Tài liệu API
-
-API base URL: `/api`
-
-Xác thực: Sử dụng JWT Bearer token trong `Authorization` header cho các route yêu cầu (`Private`).
-
-### 1. Authentication (`/auth`)
-
--   `POST /register`: Đăng ký user mới.
--   `POST /login`: Đăng nhập, nhận token.
--   `GET /me`: (Private) Lấy thông tin user hiện tại.
-
-### 2. Users (`/users`)
-
--   `GET /me`: (Private) Lấy thông tin user hiện tại.
--   `PUT /me`: (Private) Cập nhật thông tin user hiện tại.
--   `GET /search`: (Private) Tìm kiếm user theo tên/email (`?q=query`).
--   `GET /:id`: (Private) Lấy thông tin public của user khác.
-
-### 3. Tasks (`/tasks`)
-
--   `GET /`: (Private) Lấy danh sách tasks (hỗ trợ filter `projectId`, `completed`, `priority` và pagination `page`, `limit`).
--   `POST /`: (Private) Tạo task mới.
--   `GET /:id`: (Private) Lấy chi tiết task.
--   `PUT /:id`: (Private) Cập nhật task.
--   `DELETE /:id`: (Private) Xóa task.
-
-### 4. Projects (`/projects`)
-
--   `GET /`: (Private) Lấy danh sách projects user là thành viên.
--   `POST /`: (Private) Tạo project mới.
--   `GET /:id`: (Private) Lấy chi tiết project (chỉ thành viên).
--   `PUT /:id`: (Private) Cập nhật project (chỉ owner).
--   `DELETE /:id`: (Private) Xóa project (chỉ owner).
--   `POST /:id/members`: (Private) Thêm thành viên vào project (chỉ owner).
--   `DELETE /:id/members/:userId`: (Private) Xóa thành viên khỏi project (chỉ owner).
--   `GET /:id/tasks`: (Private) Lấy danh sách tasks của project (chỉ thành viên).
-
-### 5. Chats (`/chats`)
-
--   `GET /`: (Private) Lấy danh sách chat của user.
--   `POST /`: (Private) Tạo hoặc lấy chat 1-1 với user khác.
--   `GET /:chatId/messages`: (Private) Lấy tin nhắn trong chat (hỗ trợ pagination `limit`, `before`).
--   `POST /:chatId/messages`: (Private) Gửi tin nhắn.
-
-### 6. Forum (`/forum`)
-
--   `GET /posts`: (Public) Lấy danh sách bài đăng (hỗ trợ filter `tag`, pagination).
--   `POST /posts`: (Private) Tạo bài đăng mới.
--   `GET /posts/:postId`: (Public) Lấy chi tiết bài đăng.
--   `PUT /posts/:postId`: (Private) Cập nhật bài đăng (chỉ author).
--   `DELETE /posts/:postId`: (Private) Xóa bài đăng (chỉ author).
--   `POST /posts/:postId/like`: (Private) Like/unlike bài đăng.
--   `GET /posts/:postId/comments`: (Public) Lấy bình luận của bài đăng.
--   `POST /posts/:postId/comments`: (Private) Tạo bình luận mới.
--   `DELETE /comments/:commentId`: (Private) Xóa bình luận (chỉ author).
--   `GET /tags`: (Public) Lấy danh sách tags duy nhất.
-
-### 7. Documents (`/documents`)
-
--   `GET /`: (Private) Lấy danh sách tài liệu user có quyền truy cập (hỗ trợ filter, search, pagination).
--   `POST /`: (Private) Upload tài liệu mới (dùng `multipart/form-data`, field `file`).
--   `GET /:id`: (Private) Lấy metadata tài liệu.
--   `GET /:id/download`: (Private) Lấy URL download (placeholder).
--   `PUT /:id`: (Private) Cập nhật metadata tài liệu (chỉ owner).
--   `DELETE /:id`: (Private) Xóa tài liệu (chỉ owner, bao gồm cả file storage - placeholder).
--   `POST /:id/share`: (Private) Chia sẻ tài liệu (chỉ owner).
--   `POST /:id/favorite`: (Private) Yêu thích/bỏ yêu thích tài liệu.
-
-### 8. Notifications (`/notifications`)
-
--   `GET /`: (Private) Lấy danh sách thông báo (hỗ trợ filter `read`, `type`, pagination).
--   `POST /read`: (Private) Đánh dấu các thông báo cụ thể đã đọc.
--   `POST /read-all`: (Private) Đánh dấu tất cả đã đọc.
--   `DELETE /`: (Private) Xóa tất cả thông báo.
--   `DELETE /:id`: (Private) Xóa thông báo cụ thể.
+Tổng hợp API đã có trong BE
+Authentication (/api/auth)
+POST /auth/register: Đăng ký user mới
+POST /auth/login: Đăng nhập, nhận token
+GET /auth/me: Lấy thông tin user hiện tại (yêu cầu token)
+Users (/api/users)
+GET /users/me: Lấy thông tin user hiện tại
+PUT /users/me: Cập nhật thông tin user hiện tại
+GET /users/search: Tìm kiếm user theo tên/email
+GET /users/:id: Lấy thông tin public của user khác
+Tasks (/api/tasks)
+GET /tasks: Lấy danh sách tasks (filter, pagination)
+POST /tasks: Tạo task mới
+GET /tasks/:id: Lấy chi tiết task
+PUT /tasks/:id: Cập nhật task
+DELETE /tasks/:id: Xóa task
+Projects (/api/projects)
+GET /projects: Lấy danh sách projects user là thành viên
+POST /projects: Tạo project mới
+GET /projects/:id: Lấy chi tiết project
+PUT /projects/:id: Cập nhật project
+DELETE /projects/:id: Xóa project
+POST /projects/:id/members: Thêm thành viên vào project
+DELETE /projects/:id/members/:userId: Xóa thành viên khỏi project
+GET /projects/:id/tasks: Lấy danh sách tasks của project
+Chats (/api/chats)
+GET /chats: Lấy danh sách chat của user
+POST /chats: Tạo hoặc lấy chat 1-1 với user khác
+GET /chats/:chatId/messages: Lấy tin nhắn trong chat
+POST /chats/:chatId/messages: Gửi tin nhắn
+Forum (/api/forum)
+GET /forum/posts: Lấy danh sách bài đăng
+POST /forum/posts: Tạo bài đăng mới
+GET /forum/posts/:postId: Lấy chi tiết bài đăng
+PUT /forum/posts/:postId: Cập nhật bài đăng
+DELETE /forum/posts/:postId: Xóa bài đăng
+POST /forum/posts/:postId/like: Like/unlike bài đăng
+GET /forum/posts/:postId/comments: Lấy bình luận của bài đăng
+POST /forum/posts/:postId/comments: Tạo bình luận mới
+DELETE /forum/comments/:commentId: Xóa bình luận
+GET /forum/tags: Lấy danh sách tags
+Documents (/api/documents)
+GET /documents: Lấy danh sách tài liệu user có quyền truy cập
+POST /documents: Upload tài liệu mới
+GET /documents/:id: Lấy metadata tài liệu
+GET /documents/:id/download: Lấy URL download
+PUT /documents/:id: Cập nhật metadata tài liệu
+DELETE /documents/:id: Xóa tài liệu
+POST /documents/:id/share: Chia sẻ tài liệu
+POST /documents/:id/favorite: Yêu thích/bỏ yêu thích tài liệu
+Notifications (/api/notifications)
+GET /notifications: Lấy danh sách thông báo
+POST /notifications/read: Đánh dấu các thông báo đã đọc
+POST /notifications/read-all: Đánh dấu tất cả đã đọc
+DELETE /notifications: Xóa tất cả thông báo
+DELETE /notifications/:id: Xóa thông báo cụ thể
 
 *(Chi tiết về request body, response format và các mã lỗi có thể xem trực tiếp trong code controllers hoặc sử dụng công cụ như Postman/Insomnia để kiểm thử)*
 
---- 
+---
+
+## Tài khoản mẫu để test
+
+Bạn có thể sử dụng các tài khoản mẫu sau để đăng nhập và kiểm thử ứng dụng (mật khẩu mặc định: 123456):
+
+| Tên người dùng     | Email                  | Mật khẩu  | Vai trò   |
+|--------------------|------------------------|-----------|-----------|
+| Nguyễn Văn An      | an.nguyen@example.com  | 123456    | user      |
+| Trần Bình          | binh.tran@example.com  | 123456    | user      |
+| Lê Minh            | minh.le@example.com    | 123456    | user      |
+| Phạm Hà            | ha.pham@example.com    | 123456    | user      |
+| Dung Pham          | dung.pham@example.com  | 123456    | user      |
+| Hoàng Minh Tuấn    | tuan.hoang@example.com | 123456    | user      |
+| Nguyễn Thị Mai     | mai.nguyen@example.com | 123456    | user      |
+| Vũ Quốc Đạt        | dat.vu@example.com     | 123456    | user      |
+| Lê Thị Hồng        | hong.le@example.com    | 123456    | user      |
+| Trần Văn Cường     | cuong.tran@example.com | 123456    | user      |
+
+> Lưu ý: Nếu bạn muốn thêm nhiều tài khoản hơn, hãy chỉnh sửa file mongodb_setup.js và chạy lại script để cập nhật dữ liệu.
+
+---
 
 3. Mức độ "Sẵn sàng sử dụng" và Những điểm cần hoàn thiện:
 Backend này là một nền tảng vững chắc và có thể chạy được, nhưng chưa phải là hoàn chỉnh 100% để đưa vào sử dụng thực tế ngay lập tức. Các điểm quan trọng cần bạn hoàn thiện thêm bao gồm:
@@ -175,3 +177,18 @@ Tạo và Gửi Notification Real-time: Logic tạo notification trong DB đã c
 Xử lý Xóa Dependencies: Khi xóa một project hoặc một bài đăng forum, logic hiện tại chưa xử lý việc xóa các task/document/comment/like liên quan. Bạn cần quyết định chiến lược (xóa theo, bỏ liên kết, hay chặn xóa) và triển khai nó trong các hàm deleteProject, deleteForumPost.
 Validation Đầu vào Chi tiết: Nên bổ sung validation chi tiết hơn cho request body và query params (ví dụ dùng express-validator) để đảm bảo dữ liệu đầu vào luôn đúng định dạng và hợp lệ.
 Phân quyền Chi tiết hơn: Logic phân quyền hiện tại khá cơ bản (kiểm tra owner, member). Tùy theo yêu cầu, bạn có thể cần thêm vai trò (admin) hoặc các quyền chi tiết hơn (ví dụ: member có được mời member khác không?).
+
+
+
+Hiện tại, một số màn hình trong FE vẫn đang import và sử dụng mockData, cụ thể là:
+
+DocumentScreen.tsx
+NotificationScreen.tsx
+HomeScreen.tsx
+GlobalSearchResultsScreen.tsx
+Để đảm bảo mọi thứ kết nối đúng chuẩn với API BE và không còn dùng mockData, mình sẽ:
+
+Loại bỏ mọi import và sử dụng mockData ở các màn hình trên.
+Thay thế bằng gọi API thật (dùng axios từ services/api.ts).
+Đảm bảo mọi thao tác lấy dữ liệu, phân trang, tìm kiếm, upload/download file, notification... đều lấy từ BE.
+Mình sẽ tự động sửa lần lượt các file này, bắt đầu với DocumentScreen.tsx.

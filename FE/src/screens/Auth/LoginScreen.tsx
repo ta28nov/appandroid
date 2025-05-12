@@ -10,6 +10,8 @@ import {
   ScrollView,
   Image,
   Alert,
+  SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -18,8 +20,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { ROUTES } from '../../utils/constants';
 import { AuthStackParamList } from '../../navigation/types';
 import { isValidEmail } from '../../utils/helpers';
-import { COLORS } from '../../styles/theme';
-import { FONT_SIZE, FONT_WEIGHT, SPACING } from '../../styles/globalStyles';
+import { FONT_SIZE, FONT_WEIGHT, SPACING, SHADOW } from '../../styles/globalStyles';
 import AnimatedButton from '../../components/common/AnimatedButton';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -29,8 +30,6 @@ const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { login } = useAuth();
   const { theme, isDarkMode } = useTheme();
-  const colors = isDarkMode ? COLORS.dark : COLORS.light;
-  
   const [email, setEmail] = useState('user@example.com');
   const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
@@ -74,15 +73,12 @@ const LoginScreen: React.FC = () => {
     setIsLoading(true);
     try {
       await login(email, password);
-      // Navigation is handled by AppNavigator based on auth state
-    } catch (error) {
-      Alert.alert(
-        'Login Failed',
-        'Invalid email or password. Please try again.',
-        [{ text: 'OK' }]
-      );
+    } catch (error: any) {
+      console.error("Login error caught in component:", error.message);
+      const errorMessage = error.message || 'Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại.';
+      Alert.alert('Lỗi Đăng nhập', errorMessage);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false); 
     }
   };
   
@@ -100,254 +96,176 @@ const LoginScreen: React.FC = () => {
   const logoPlaceholder = { uri: 'https://via.placeholder.com/200x200.png?text=Logo' };
   
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
       >
-        <View style={styles.logoContainer}>
-          <Image
-            source={logoPlaceholder}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={[styles.appName, { color: theme.colors.text }]}>
-            Digital Workspace Pro
-          </Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Welcome Back</Text>
+          <Text style={styles.subtitle}>Sign in to continue to your workspace</Text>
         </View>
         
-        <View style={styles.formContainer}>
-          <Text style={[styles.welcomeText, { color: theme.colors.text }]}>
-            Welcome Back
-          </Text>
-          <Text style={[styles.subtitleText, { color: colors.text.secondary }]}>
-            Sign in to continue to your workspace
-          </Text>
-          
-          {/* Thêm hướng dẫn tài khoản mẫu */}
-          <View style={[styles.testAccountBox, { backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }]}>
-            <Text style={{ color: theme.colors.text, fontWeight: '500' }}>
-              Tài khoản test:
-            </Text>
-            <Text style={{ color: theme.colors.text }}>
-              Email: user@example.com
-            </Text>
-            <Text style={{ color: theme.colors.text }}>
-              Mật khẩu: password123
-            </Text>
+        <View style={styles.form}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.disabled }]}>
+            <Icon name="email-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: theme.colors.text }, emailError ? styles.inputError : {}]}
+              placeholder="Email"
+              placeholderTextColor={theme.colors.disabled}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={(text) => { setEmail(text); setEmailError(''); }}
+              textContentType="emailAddress"
+            />
           </View>
-          
-          {/* Email Input */}
-          <View style={styles.inputWrapper}>
-            <View
-              style={[
-                styles.inputContainer,
-                { backgroundColor: isDarkMode ? colors.surface : '#F0F0F5' },
-                emailError ? styles.inputError : null,
-              ]}
-            >
-              <Icon
-                name="email-outline"
-                size={20}
-                color={isDarkMode ? colors.text.secondary : '#8E8E93'}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.input, { color: theme.colors.text }]}
-                placeholder="Email"
-                placeholderTextColor={isDarkMode ? '#AEAEB2' : '#8E8E93'}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
-            {emailError ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {emailError}
-              </Text>
-            ) : null}
-          </View>
-          
-          {/* Password Input */}
-          <View style={styles.inputWrapper}>
-            <View
-              style={[
-                styles.inputContainer,
-                { backgroundColor: isDarkMode ? colors.surface : '#F0F0F5' },
-                passwordError ? styles.inputError : null,
-              ]}
-            >
-              <Icon
-                name="lock-outline"
-                size={20}
-                color={isDarkMode ? colors.text.secondary : '#8E8E93'}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.input, { color: theme.colors.text }]}
-                placeholder="Password"
-                placeholderTextColor={isDarkMode ? '#AEAEB2' : '#8E8E93'}
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.passwordToggle}
-              >
-                <Icon
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={isDarkMode ? colors.text.secondary : '#8E8E93'}
-                />
-              </TouchableOpacity>
-            </View>
-            {passwordError ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>
-                {passwordError}
-              </Text>
-            ) : null}
-          </View>
-          
-          {/* Forgot Password */}
-          <TouchableOpacity
-            onPress={handleForgotPassword}
-            style={styles.forgotPasswordContainer}
-          >
-            <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
-              Forgot Password?
-            </Text>
-          </TouchableOpacity>
-          
-          {/* Login Button */}
-          <AnimatedButton
-            title="Sign In"
-            onPress={handleLogin}
-            variant="primary"
-            animationType="scale"
-            loading={isLoading}
-            fullWidth
-            style={styles.loginButton}
-          />
-          
-          {/* Sign Up Link */}
-          <View style={styles.signUpContainer}>
-            <Text style={[styles.signUpText, { color: colors.text.secondary }]}>
-              Don't have an account?
-            </Text>
-            <TouchableOpacity onPress={handleRegister}>
-              <Text style={[styles.signUpLinkText, { color: colors.primary }]}>
-                Sign Up
-              </Text>
+          {emailError ? <Text style={[styles.errorText, { color: theme.colors.error }]}>{emailError}</Text> : null}
+
+          <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderColor: theme.colors.disabled }]}>
+            <Icon name="lock-outline" size={20} color={theme.colors.primary} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: theme.colors.text }, passwordError ? styles.inputError : {}]}
+              placeholder="Password"
+              placeholderTextColor={theme.colors.disabled}
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={(text) => { setPassword(text); setPasswordError(''); }}
+              textContentType="password"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
+          {passwordError ? <Text style={[styles.errorText, { color: theme.colors.error }]}>{passwordError}</Text> : null}
+
+          <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
+            <Text style={[styles.forgotPasswordText, { color: theme.colors.primary }]}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: theme.colors.primary }, isLoading ? styles.buttonDisabled : {}]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+            ) : (
+              <Text style={[styles.buttonText, { color: theme.colors.onPrimary }]}>Sign In</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: theme.colors.text }]}>Don't have an account?</Text>
+          <TouchableOpacity onPress={handleRegister}>
+            <Text style={[styles.footerLink, { color: theme.colors.primary }]}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  container: {
+    flex: 1,
     justifyContent: 'center',
-    padding: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
   },
-  logoContainer: {
+  header: {
     alignItems: 'center',
     marginBottom: SPACING.xl,
   },
-  logo: {
-    width: 100,
-    height: 100,
-    marginBottom: SPACING.md,
-  },
-  appName: {
-    fontSize: FONT_SIZE.h2,
-    fontWeight: FONT_WEIGHT.bold,
-    textAlign: 'center',
-  },
-  formContainer: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
-  welcomeText: {
+  title: {
     fontSize: FONT_SIZE.h1,
     fontWeight: FONT_WEIGHT.bold,
+    color: '#424242',
     marginBottom: SPACING.xs,
   },
-  subtitleText: {
+  subtitle: {
     fontSize: FONT_SIZE.body,
-    marginBottom: SPACING.xl,
+    color: '#424242',
+    textAlign: 'center',
   },
-  inputWrapper: {
-    marginBottom: SPACING.md,
+  form: {
+    width: '100%',
+    marginBottom: SPACING.lg,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
     paddingHorizontal: SPACING.md,
-    height: 50,
-  },
-  inputError: {
     borderWidth: 1,
-    borderColor: COLORS.light.error,
   },
   input: {
     flex: 1,
+    height: 50,
+    color: '#424242',
     fontSize: FONT_SIZE.body,
-    paddingVertical: SPACING.md,
   },
   inputIcon: {
     marginRight: SPACING.sm,
   },
-  passwordToggle: {
-    padding: SPACING.sm,
+  eyeIcon: {
+    padding: SPACING.xs,
+  },
+  inputError: {
+    borderColor: '#FF0000',
   },
   errorText: {
-    fontSize: FONT_SIZE.caption,
-    marginTop: 4,
-    marginLeft: 4,
+    color: '#FF0000',
+    fontSize: FONT_SIZE.small,
+    marginLeft: SPACING.md,
+    marginBottom: SPACING.md,
+    marginTop: -SPACING.sm,
   },
-  forgotPasswordContainer: {
+  forgotPasswordButton: {
     alignSelf: 'flex-end',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
   forgotPasswordText: {
+    color: '#2979FF',
     fontSize: FONT_SIZE.body,
-    fontWeight: FONT_WEIGHT.medium,
   },
-  loginButton: {
-    marginBottom: SPACING.xl,
+  button: {
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    ...SHADOW.medium,
   },
-  signUpContainer: {
+  buttonDisabled: {
+    backgroundColor: '#A0C4FF',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: FONT_SIZE.medium,
+    fontWeight: FONT_WEIGHT.semiBold,
+  },
+  footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: SPACING.md,
   },
-  signUpText: {
+  footerText: {
+    color: '#424242',
     fontSize: FONT_SIZE.body,
-    marginRight: SPACING.xs,
   },
-  signUpLinkText: {
+  footerLink: {
+    color: '#2979FF',
     fontSize: FONT_SIZE.body,
-    fontWeight: FONT_WEIGHT.medium,
-  },
-  testAccountBox: {
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.md,
+    fontWeight: FONT_WEIGHT.semiBold,
+    marginLeft: SPACING.xs,
   },
 });
 
-export default LoginScreen; 
+export default LoginScreen;

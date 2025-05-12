@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const http = require('http');
+const socketio = require('socket.io');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -18,6 +20,28 @@ const notificationRoutes = require('./routes/notificationRoutes');
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
+const io = socketio(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
+
+// Socket.IO user map
+const userSocketMap = new Map();
+io.on('connection', (socket) => {
+  socket.on('register', (userId) => {
+    userSocketMap.set(userId, socket.id);
+  });
+  socket.on('disconnect', () => {
+    for (const [userId, sid] of userSocketMap.entries()) {
+      if (sid === socket.id) userSocketMap.delete(userId);
+    }
+  });
+});
+app.set('io', io);
+app.set('userSocketMap', userSocketMap);
 
 // Middleware
 app.use(cors()); // Cho phép Chia sẻ Tài nguyên Nguồn gốc Chéo (CORS) để kết nối với frontend
@@ -29,17 +53,15 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/projects', projectRoutes);
-// app.use('/api/chats', chatRoutes);
-// app.use('/api/forum', forumRoutes);
-// app.use('/api/notifications', notificationRoutes);
-// app.use('/api/documents', documentRoutes);
+app.use('/api/chats', chatRoutes);
+app.use('/api/forum', forumRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/documents', documentRoutes);
 
-// --- Chỗ giữ chỗ cho việc tải lên tệp (phục vụ tĩnh) nếu cần cục bộ ---
-// Ví dụ: Nếu lưu trữ các tệp tải lên trong thư mục 'uploads' ở thư mục gốc BE
-// const path = require('path');
-// app.use('/uploads', express.static(path.join(__dirname, '../../uploads'))); 
-// LƯU Ý: Đối với môi trường production, hãy sử dụng lưu trữ đám mây (S3, v.v.) thay vì lưu trữ cục bộ.
-// ----------------------------------------------------------------------
+// Phục vụ file tĩnh trong thư mục uploads
+const path = require('path');
+const uploadsPath = path.join(__dirname, '../../uploads');
+app.use('/uploads', express.static(uploadsPath));
 
 // Default route for testing
 app.get('/', (req, res) => {
@@ -52,4 +74,4 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () => console.log(`Máy chủ đang chạy trên cổng ${PORT}`)); 
+server.listen(PORT, () => console.log(`Máy chủ đang chạy trên cổng ${PORT}`));

@@ -3,6 +3,7 @@ const Project = require('../models/Project');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const logger = require('../utils/logger'); // Logging cho các action quan trọng
 
 // Hàm trợ giúp middleware để kiểm tra tư cách thành viên dự án
 const checkProjectMember = async (projectId, userId) => {
@@ -112,6 +113,7 @@ const createProject = asyncHandler(async (req, res) => {
   const createdProject = await project.save();
   // Populate thông tin chủ sở hữu cho phản hồi
   const populatedProject = await Project.findById(createdProject._id).populate('ownerId', 'name email avatarUrl');
+  logger.info(`Project created: ${name} by user ${req.user.email}`);
   res.status(201).json(populatedProject);
 });
 
@@ -157,6 +159,7 @@ const updateProject = asyncHandler(async (req, res) => {
 
     const updatedProject = await project.save();
     await updatedProject.populate('ownerId', 'name email avatarUrl'); // Populate chủ sở hữu cho phản hồi
+    logger.info(`Project updated: ${projectId} by user ${userId}`);
     res.json(updatedProject);
   } catch (error) {
     res.status(error.message.includes('Only the project owner') ? 403 : 404);
@@ -188,7 +191,7 @@ const deleteProject = asyncHandler(async (req, res) => {
       // await Document.deleteMany({ projectId: project._id });
   
       await project.deleteOne();
-  
+      logger.info(`Project deleted: ${projectId} by user ${userId}`);
       res.json({ message: 'Dự án đã được xóa thành công', id: projectId });
     } catch (error) {
       res.status(error.message.includes('Only the project owner') ? 403 : 404);
@@ -356,4 +359,4 @@ module.exports = {
   addProjectMember,
   removeProjectMember,
   getProjectTasks,
-}; 
+};

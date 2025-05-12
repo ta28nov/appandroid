@@ -6,27 +6,30 @@ const Project = require('../models/Project'); // Cần thiết cho việc xác t
 const User = require('../models/User'); // Import trực tiếp User model
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs');
 
-// --- Chỗ giữ chỗ cho Dịch vụ Lưu trữ Đám mây ---
-// Trong một ứng dụng thực tế, bạn sẽ có một dịch vụ như thế này:
-// const { uploadFileToCloud, deleteFileFromCloud, getPresignedUrl } = require('../services/cloudStorageService');
-// Ví dụ các hàm giữ chỗ:
-const uploadFileToCloud = async (fileBuffer, filename) => {
-    console.warn("Placeholder: Mô phỏng việc tải tệp lên đám mây cho:", filename);
-    // Trong triển khai thực tế: Tải fileBuffer lên S3/GCS/etc. và trả về URL
-    return `https://fake-cloud-storage.com/uploads/${Date.now()}-${filename}`;
+// --- Lưu file vật lý, trả về URL tĩnh ---
+const uploadFileToCloud = async (filePath, filename) => {
+  // Trả về đường dẫn URL tĩnh cho FE
+  return `/uploads/${path.basename(filePath)}`;
 };
 const deleteFileFromCloud = async (storageUrl) => {
-    console.warn("Placeholder: Mô phỏng việc xóa tệp khỏi đám mây cho URL:", storageUrl);
-    // Trong triển khai thực tế: Phân tích cú pháp URL và xóa đối tượng khỏi S3/GCS/etc.
+  // Xóa file vật lý khỏi uploads
+  try {
+    const filePath = path.join(__dirname, '../../', storageUrl);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
     return true;
+  } catch (err) {
+    console.error('Lỗi xóa file vật lý:', err);
+    return false;
+  }
 };
 const getPresignedUrl = async (storageUrl) => {
-    console.warn("Placeholder: Tạo URL đã ký trước cho:", storageUrl);
-    // Trong triển khai thực tế: Tạo một URL tạm thời, an toàn để tải xuống
-    return `${storageUrl}?temp_token=fake123`;
+  // Trả về URL tĩnh (không cần ký)
+  return storageUrl;
 };
-// --------------------------------------------
 
 // Helper function (same as in chatController)
 const createNotification = async (recipientId, type, title, message, relatedEntity = null) => {
@@ -164,17 +167,16 @@ const uploadDocument = asyncHandler(async (req, res) => {
         }
     }
 
-    // --- Logic Tải lên Đám mây --- 
+    // --- Logic Lưu file vật lý --- 
     let storageUrl;
     try {
-        // Sử dụng file.buffer nếu dùng memoryStorage, hoặc file.path nếu dùng diskStorage
-        storageUrl = await uploadFileToCloud(file.buffer, file.originalname);
+        storageUrl = await uploadFileToCloud(file.path, file.originalname);
     } catch (uploadError) {
-        console.error("Tải lên đám mây thất bại:", uploadError);
+        console.error("Lưu file vật lý thất bại:", uploadError);
         res.status(500);
-        throw new Error('Không thể tải tệp lên bộ nhớ đám mây');
+        throw new Error('Không thể lưu tệp lên server');
     }
-    // --- Kết thúc Tải lên Đám mây --- 
+    // --- Kết thúc Lưu file vật lý --- 
 
     // Tạo siêu dữ liệu tài liệu trong DB
     const document = new Document({
@@ -415,4 +417,4 @@ module.exports = {
   deleteDocument,
   shareDocument,
   toggleFavoriteDocument,
-}; 
+};

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  useWindowDimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -18,39 +18,22 @@ import { useAuth } from '../../hooks/useAuth';
 import { COLORS } from '../../styles/theme';
 import { FONT_SIZE, FONT_WEIGHT, SPACING, SHADOW } from '../../styles/globalStyles';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import ProgressBar from '../../components/common/ProgressBar';
-import UserProfileCard from '../../components/common/UserProfileCard';
 import { FAB } from 'react-native-paper';
 import AIChatModal from '../../components/feature-specific/AI/AIChatModal';
 
-// Uncomment Victory imports
+// Import API services
 import {
-  VictoryPie,
-  VictoryLine,
-  VictoryChart,
-  VictoryTheme,
-  VictoryAxis,
-  VictoryBar,
-  VictoryLabel
-} from 'victory-native';
+  apiGetTasks,
+  apiGetNotifications,
+  apiGetDocuments,
+} from '../../services/api';
 
-// Mock Data - Sẽ được thay thế bằng dữ liệu từ API thực tế
-// Import mock data - using require to avoid TypeScript errors temporarily
-const { 
-  mockTasks, 
-  mockDocuments, 
-  mockWeather, 
-  mockTeamActivity, 
-  mockNotifications, 
-  mockStatistics
-} = require('../../utils/mockData');
-
-// Types cho các dữ liệu task và document
+// Định nghĩa types cần thiết (hoặc import từ nơi khác nếu có)
 interface Task {
   id: string;
   title: string;
-  description: string;
-  assignedTo: string;
+  description?: string; // Thêm optional nếu cần
+  assignedTo?: string;
   priority: string;
   completed: boolean;
   dueDate: string;
@@ -60,533 +43,66 @@ interface Task {
 interface Document {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   type: string;
   size: string;
-  createdBy: string;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
-  shared: boolean;
-  tags: string[];
+  shared?: boolean;
+  tags?: string[];
 }
 
-// Use BottomTabNavigationProp with MainTabParamList
-type HomeScreenNavigationProp = BottomTabNavigationProp<
-  MainTabParamList,
-  typeof ROUTES.MAIN.HOME
->;
-
-// Interface cho ProgressBar
-interface ProgressBarProps {
-  progress: number;
-  height?: number;
-  backgroundColor?: string;
-  progressColor?: string;
-  animated?: boolean;
-}
-
-// Add a type for Notification similar to NotificationScreen
 interface Notification {
   id: string;
   title: string;
   message: string;
   type: string;
   read: boolean;
-  createdAt: string; // Add createdAt
+  createdAt: string;
 }
 
-const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { theme, isDarkMode } = useTheme();
-  const { user } = useAuth();
-  const { width } = useWindowDimensions();
-  const colors = isDarkMode ? COLORS.dark : COLORS.light;
-  
-  // State
-  const [refreshing, setRefreshing] = useState(false);
-  const [greeting, setGreeting] = useState('');
-  const [statistics, setStatistics] = useState(mockStatistics);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks as Task[]);
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments as Document[]);
-  const [teamActivity, setTeamActivity] = useState(mockTeamActivity);
-  const [notifications, setNotifications] = useState<Notification[]>([]); // Initialize as empty array
-  const [weather, setWeather] = useState(mockWeather);
-  const [isChatModalVisible, setIsChatModalVisible] = useState(false);
-  
-  // Gán lời chào dựa trên thời gian trong ngày
-  useEffect(() => {
-    // Adapt mockNotifications
-    const adaptedNotifications = mockNotifications.map((notif: any) => ({
-      ...notif,
-      createdAt: notif.time, // Rename 'time' to 'createdAt'
-    }));
-    setNotifications(adaptedNotifications);
+type HomeScreenNavigationProp = BottomTabNavigationProp<
+  MainTabParamList,
+  typeof ROUTES.MAIN.HOME
+>;
 
-    const hours = new Date().getHours();
-    let newGreeting = '';
-    
-    if (hours < 12) {
-      newGreeting = 'Chào buổi sáng';
-    } else if (hours < 18) {
-      newGreeting = 'Chào buổi chiều';
-    } else {
-      newGreeting = 'Chào buổi tối';
-    }
-    
-    setGreeting(newGreeting);
-  }, []);
-  
-  // Xử lý refresh trang
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    
-    // Giả lập việc tải dữ liệu từ API
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
-  };
-  
-  // Điều hướng đến màn hình thông báo
-  const handleNotificationPress = () => {
-    navigation.navigate(ROUTES.MAIN.NOTIFICATIONS);
-  };
-  
-  // Điều hướng đến màn hình hồ sơ người dùng
-  const handleProfilePress = () => {
-    // Navigate to the navigator containing the screen, and specify the screen
-    navigation.navigate(ROUTES.MAIN.SETTINGS_NAVIGATOR, { screen: ROUTES.MAIN.PROFILE });
-  };
-  
-  // Điều hướng đến màn hình cài đặt
-  const handleSettingsPress = () => {
-    // Navigate to the navigator containing the screen, and specify the screen
-    navigation.navigate(ROUTES.MAIN.SETTINGS_NAVIGATOR, { screen: ROUTES.MAIN.SETTINGS });
-  };
-  
-  // Điều hướng đến màn hình công việc
-  const handleTasksPress = () => {
-    navigation.navigate(ROUTES.MAIN.TASKS);
-  };
-  
-  // Điều hướng đến màn hình tài liệu
-  const handleDocumentsPress = () => {
-    navigation.navigate(ROUTES.MAIN.DOCUMENTS);
-  };
-  
-  // Điều hướng đến màn hình diễn đàn
-  const handleForumPress = () => {
-    navigation.navigate(ROUTES.MAIN.FORUM);
-  };
-  
-  // Điều hướng đến màn hình trò chuyện
-  const handleChatPress = () => {
-    navigation.navigate(ROUTES.MAIN.CHAT_LIST);
-  };
-  
-  // Dữ liệu cho biểu đồ đường
-  const lineChartData = [
-    { x: "T2", y: statistics.weeklyActivity[0] },
-    { x: "T3", y: statistics.weeklyActivity[1] },
-    { x: "T4", y: statistics.weeklyActivity[2] },
-    { x: "T5", y: statistics.weeklyActivity[3] },
-    { x: "T6", y: statistics.weeklyActivity[4] },
-    { x: "T7", y: statistics.weeklyActivity[5] },
-    { x: "CN", y: statistics.weeklyActivity[6] }
-  ];
-  
-  // Dữ liệu cho biểu đồ tròn
-  const pieChartData = [
-    { x: "Đã hoàn thành", y: statistics.taskCompletion.completed, color: colors.success },
-    { x: "Đang thực hiện", y: statistics.taskCompletion.inProgress, color: colors.secondary },
-    { x: "Quá hạn", y: statistics.taskCompletion.overdue, color: colors.error }
-  ];
-  
-  // Dữ liệu cho biểu đồ cột
-  const barChartData = [
-    { x: "Tài liệu", y: statistics.documentCount },
-    { x: "Công việc", y: statistics.taskCount },
-    { x: "Thảo luận", y: statistics.forumPosts },
-    { x: "Tin nhắn", y: statistics.messageCount }
-  ];
-  
-  const openChatModal = () => setIsChatModalVisible(true);
-  const closeChatModal = () => setIsChatModalVisible(false);
-
-  return (
-    <View style={styles.containerWrapper}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContentContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-      >
-        {/* Header với lời chào và nút thông báo */}
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: theme.colors.text }]}>
-              {greeting}
-            </Text>
-            <Text style={[styles.username, { color: theme.colors.text }]}>
-              {user?.name || 'Người dùng'}
-            </Text>
-          </View>
-          
-          <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={[
-                styles.iconButton,
-                { backgroundColor: theme.colors.surface },
-              ]}
-              onPress={handleNotificationPress}
-            >
-              <Icon
-                name="bell-outline"
-                size={22}
-                color={theme.colors.text}
-              />
-              {notifications.length > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>
-                    {notifications.length > 99 ? '99+' : notifications.length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.iconButton,
-                { backgroundColor: theme.colors.surface },
-              ]}
-              onPress={handleSettingsPress}
-            >
-              <Icon
-                name="cog-outline"
-                size={22}
-                color={theme.colors.text}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {/* Thông tin thời tiết */}
-        <View style={[styles.weatherCard, { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.weatherHeader}>
-            <Icon
-              name={
-                weather.condition === 'Sunny' ? 'weather-sunny' :
-                weather.condition === 'Cloudy' ? 'weather-cloudy' :
-                weather.condition === 'Rainy' ? 'weather-rainy' :
-                'weather-partly-cloudy'
-              }
-              size={40}
-              color={theme.colors.primary}
-            />
-            <View style={styles.weatherInfo}>
-              <Text style={[styles.weatherTemp, { color: theme.colors.text }]}>
-                {weather.temperature}°C
-              </Text>
-              <Text style={{ color: isDarkMode ? '#AEAEB2' : '#8E8E93' }}>
-                {weather.city}
-              </Text>
-            </View>
-          </View>
-          <Text style={{ color: isDarkMode ? '#AEAEB2' : '#8E8E93', marginTop: SPACING.xs }}>
-            {weather.description}
-          </Text>
-        </View>
-        
-        {/* Thẻ thống kê tóm tắt */}
-        <View style={styles.statsRow}>
-          {/* Công việc Card */}
-          <TouchableOpacity onPress={handleTasksPress} style={styles.touchableCardFlex}>
-            <View style={[styles.statsCard, { backgroundColor: theme.colors.surface }]}>
-              <View style={styles.statsHeader}>
-                <Text style={[styles.statsTitle, { color: theme.colors.text }]}>
-                  Công việc
-                </Text>
-                <Icon name="checkbox-marked-outline" size={20} color={theme.colors.primary} />
-              </View>
-              <Text style={[styles.statsValue, { color: theme.colors.text }]}>
-                {statistics.taskCount}
-              </Text>
-              <ProgressBar 
-                progress={(statistics.taskCompletion.completed / 
-                  (statistics.taskCompletion.completed + 
-                   statistics.taskCompletion.inProgress + 
-                   statistics.taskCompletion.overdue)) * 100}
-                height={8}
-              />
-              <Text style={{ color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: FONT_SIZE.small }}>
-                {Math.round(statistics.taskCompletion.completed / 
-                  (statistics.taskCompletion.completed + 
-                   statistics.taskCompletion.inProgress + 
-                   statistics.taskCompletion.overdue) * 100)}% hoàn thành
-              </Text>
-            </View>
-          </TouchableOpacity>
-          
-          {/* Tài liệu Card */}
-          <TouchableOpacity onPress={handleDocumentsPress} style={styles.touchableCardFlex}>
-            <View style={[styles.statsCard, { backgroundColor: theme.colors.surface }]}>
-              <View style={styles.statsHeader}>
-                <Text style={[styles.statsTitle, { color: theme.colors.text }]}>
-                  Tài liệu
-                </Text>
-                <Icon name="file-document-outline" size={20} color={theme.colors.primary} />
-              </View>
-              <Text style={[styles.statsValue, { color: theme.colors.text }]}>
-                {statistics.documentCount}
-              </Text>
-              <Text style={{ color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: FONT_SIZE.small }}>
-                {statistics.documentNew} tài liệu mới
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Biểu đồ hoạt động hàng tuần */}
-        <TouchableOpacity onPress={handleTasksPress}>
-          <View style={[styles.chartCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.chartTitle, { color: theme.colors.text }]}>
-              Hoạt động hàng tuần
-            </Text>
-            <View style={styles.chartContainer}>
-              <VictoryChart
-                width={width - (SPACING.md * 4)}
-                height={200}
-                theme={VictoryTheme.material}
-                domainPadding={{ x: 20 }}
-                padding={{ left: 50, right: 30, top: 20, bottom: 40 }}
-              >
-                <VictoryAxis
-                  style={{
-                    axis: { stroke: isDarkMode ? '#AEAEB2' : '#8E8E93' },
-                    tickLabels: { fill: isDarkMode ? '#AEAEB2' : '#8E8E93' }
-                  }}
-                />
-                <VictoryAxis
-                  dependentAxis
-                  style={{
-                    axis: { stroke: isDarkMode ? '#AEAEB2' : '#8E8E93' },
-                    tickLabels: { fill: isDarkMode ? '#AEAEB2' : '#8E8E93' }
-                  }}
-                />
-                <VictoryLine
-                  data={lineChartData}
-                  style={{
-                    data: { stroke: theme.colors.primary, strokeWidth: 3 },
-                  }}
-                  animate={{
-                    duration: 1000,
-                    onLoad: { duration: 500 }
-                  }}
-                />
-              </VictoryChart>
-            </View>
-          </View>
-        </TouchableOpacity>
-        
-        {/* Biểu đồ tròn thống kê tác vụ */}
-        <TouchableOpacity onPress={handleTasksPress}>
-          <View style={[styles.chartCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.chartTitle, { color: theme.colors.text }]}>
-              Thống kê công việc
-            </Text>
-            <View style={styles.chartContainer}>
-              <VictoryPie
-                data={pieChartData}
-                width={width - (SPACING.md * 4)}
-                height={220}
-                colorScale={pieChartData.map(d => d.color)}
-                innerRadius={70}
-                labelRadius={(props: any) => {
-                  const { innerRadius = 0 } = props;
-                  return innerRadius + 30;
-                }}
-                style={{
-                  labels: { fill: theme.colors.text, fontSize: 12 }
-                }}
-                animate={{
-                  duration: 1000,
-                  onLoad: { duration: 500 }
-                }}
-              />
-            </View>
-          </View>
-        </TouchableOpacity>
-        
-        {/* Biểu đồ cột thống kê tổng quát */}
-        <TouchableOpacity onPress={handleTasksPress}>
-          <View style={[styles.chartCard, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.chartTitle, { color: theme.colors.text }]}>
-              Tổng quan dữ liệu
-            </Text>
-            <View style={styles.chartContainer}>
-              <VictoryChart
-                width={width - (SPACING.md * 4)}
-                height={200}
-                domainPadding={{ x: 25 }}
-                padding={{ left: 50, right: 50, top: 20, bottom: 40 }}
-              >
-                <VictoryAxis
-                  style={{
-                    axis: { stroke: isDarkMode ? '#AEAEB2' : '#8E8E93' },
-                    tickLabels: { fill: isDarkMode ? '#AEAEB2' : '#8E8E93', angle: -45, fontSize: 10, textAnchor: 'end' }
-                  }}
-                />
-                <VictoryAxis
-                  dependentAxis
-                  style={{
-                    axis: { stroke: isDarkMode ? '#AEAEB2' : '#8E8E93' },
-                    tickLabels: { fill: isDarkMode ? '#AEAEB2' : '#8E8E93' }
-                  }}
-                />
-                <VictoryBar
-                  data={barChartData}
-                  style={{
-                    data: { fill: theme.colors.primary, width: 20 }
-                  }}
-                  animate={{
-                    duration: 1000,
-                    onLoad: { duration: 500 }
-                  }}
-                />
-              </VictoryChart>
-            </View>
-          </View>
-        </TouchableOpacity>
-        
-        {/* Công việc gần đây */}
-        <View style={[styles.sectionCard, { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Công việc gần đây
-            </Text>
-            <TouchableOpacity onPress={handleTasksPress}>
-              <Text style={{ color: theme.colors.primary }}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {tasks.slice(0, 3).map((task, idx) => (
-            <View 
-              key={task.id} 
-              style={[
-                styles.taskItem,
-                idx < tasks.slice(0, 3).length - 1 && styles.taskItemBorder,
-                { borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }
-              ]}
-            >
-              <View style={styles.taskItemLeft}>
-                <Icon
-                  name={task.completed ? 'checkbox-marked-circle-outline' : 'clock-outline'}
-                  size={22}
-                  color={task.completed ? colors.success : task.overdue ? colors.error : colors.secondary}
-                />
-                <View style={styles.taskDetails}>
-                  <Text style={[styles.taskTitle, { color: theme.colors.text }]}>
-                    {task.title}
-                  </Text>
-                  <Text style={{ color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: FONT_SIZE.small }}>
-                    Hạn: {new Date(task.dueDate).toLocaleDateString('vi-VN')}
-                  </Text>
-                </View>
-              </View>
-              <Icon
-                name="chevron-right"
-                size={20}
-                color={isDarkMode ? '#AEAEB2' : '#8E8E93'}
-              />
-            </View>
-          ))}
-        </View>
-        
-        {/* Tài liệu gần đây */}
-        <View style={[styles.sectionCard, { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Tài liệu gần đây
-            </Text>
-            <TouchableOpacity onPress={handleDocumentsPress}>
-              <Text style={{ color: theme.colors.primary }}>Xem tất cả</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {documents.slice(0, 3).map((doc, idx) => (
-            <View 
-              key={doc.id} 
-              style={[
-                styles.docItem,
-                idx < documents.slice(0, 3).length - 1 && styles.docItemBorder,
-                { borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)' }
-              ]}
-            >
-              <View style={styles.docItemLeft}>
-                <Icon
-                  name={
-                    doc.type === 'pdf' ? 'file-pdf-box' :
-                    doc.type === 'doc' ? 'file-word' :
-                    doc.type === 'xls' ? 'file-excel' :
-                    doc.type === 'ppt' ? 'file-powerpoint' :
-                    'file-document-outline'
-                  }
-                  size={24}
-                  color={
-                    doc.type === 'pdf' ? '#F44336' :
-                    doc.type === 'doc' ? '#2196F3' :
-                    doc.type === 'xls' ? '#4CAF50' :
-                    doc.type === 'ppt' ? '#FF9800' :
-                    theme.colors.primary
-                  }
-                />
-                <View style={styles.docDetails}>
-                  <Text style={[styles.docTitle, { color: theme.colors.text }]}>
-                    {doc.title}
-                  </Text>
-                  <Text style={{ color: isDarkMode ? '#AEAEB2' : '#8E8E93', fontSize: FONT_SIZE.small }}>
-                    {doc.size} • {new Date(doc.updatedAt).toLocaleDateString('vi-VN')}
-                  </Text>
-                </View>
-              </View>
-              <Icon
-                name="chevron-right"
-                size={20}
-                color={isDarkMode ? '#AEAEB2' : '#8E8E93'}
-              />
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* AI Chat FAB */}
-      <FAB
-        style={styles.fab}
-        icon="robot-outline"
-        onPress={openChatModal}
-        theme={{ colors: { accent: theme.colors.primary } }} // Ensure FAB color matches primary theme color
-      />
-
-      {/* AI Chat Modal */}
-      <AIChatModal visible={isChatModalVisible} onClose={closeChatModal} />
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
+// Hàm tạo styles động dựa trên theme
+const getStyles = (theme: any, isDarkMode: boolean) => StyleSheet.create({
   containerWrapper: {
     flex: 1,
   },
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background, // Sử dụng theme ở đây
   },
   scrollContentContainer: {
     paddingBottom: 80,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    backgroundColor: theme.colors.background, // Sử dụng theme ở đây
+  },
+  errorText: {
+    fontSize: FONT_SIZE.body,
+    textAlign: 'center',
+    color: theme.colors.error, // Sử dụng theme ở đây
+    marginTop: SPACING.sm,
+  },
+  retryButton: {
+    marginTop: SPACING.md,
+    backgroundColor: theme.colors.primary, // Sử dụng theme ở đây
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: theme.colors.onPrimary, // Sử dụng theme ở đây
+    fontSize: FONT_SIZE.body,
+    fontWeight: FONT_WEIGHT.semiBold,
   },
   header: {
     flexDirection: 'row',
@@ -605,168 +121,335 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: SPACING.sm,
+    backgroundColor: theme.colors.surface, // Sử dụng theme ở đây
     ...SHADOW.small,
   },
   notificationBadge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: 'red',
+    top: -3,
+    right: -3,
+    backgroundColor: theme.colors.error, // Sử dụng theme ở đây
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   notificationCount: {
-    color: 'white',
+    color: theme.colors.onError ?? '#FFFFFF', // Sử dụng theme, fallback về màu trắng cố định
     fontSize: 10,
     fontWeight: 'bold',
   },
   greeting: {
     fontSize: FONT_SIZE.body,
+    color: theme.colors.text, // Sử dụng theme ở đây
   },
   username: {
     fontSize: FONT_SIZE.h2,
     fontWeight: FONT_WEIGHT.bold,
     marginTop: 4,
-  },
-  weatherCard: {
-    margin: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: 12,
-    ...SHADOW.small,
-  },
-  weatherHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  weatherInfo: {
-    marginLeft: SPACING.md,
-  },
-  weatherTemp: {
-    fontSize: FONT_SIZE.h3,
-    fontWeight: FONT_WEIGHT.bold,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: SPACING.md,
-  },
-  touchableCardFlex: {
-    flex: 1,
-    marginRight: SPACING.md,
-  },
-  statsCard: {
-    flex: 1,
-    padding: SPACING.md,
-    borderRadius: 12,
-    marginRight: 0,
-    width: '100%',
-    ...SHADOW.small,
-  },
-  statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.xs,
-  },
-  statsTitle: {
-    fontSize: FONT_SIZE.body,
-  },
-  statsValue: {
-    fontSize: FONT_SIZE.h2,
-    fontWeight: FONT_WEIGHT.bold,
-    marginVertical: SPACING.xs,
-  },
-  statsProgress: {
-    marginVertical: SPACING.sm,
-  },
-  chartCard: {
-    margin: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: 12,
-    ...SHADOW.small,
-  },
-  chartTitle: {
-    fontSize: FONT_SIZE.subtitle,
-    fontWeight: FONT_WEIGHT.semiBold,
-    marginBottom: SPACING.md,
-  },
-  chartContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    color: theme.colors.text, // Sử dụng theme ở đây
   },
   sectionCard: {
-    margin: SPACING.md,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
     padding: SPACING.md,
     borderRadius: 12,
+    backgroundColor: theme.colors.surface, // Sử dụng theme ở đây
     ...SHADOW.small,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   sectionTitle: {
     fontSize: FONT_SIZE.subtitle,
     fontWeight: FONT_WEIGHT.semiBold,
+    color: theme.colors.text, // Sử dụng theme ở đây
   },
-  taskItem: {
+  viewAllText: {
+      color: theme.colors.primary // Sử dụng theme ở đây
+  },
+  emptyStateContainer: {
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: FONT_SIZE.body,
+    color: theme.colors.disabled, // Sử dụng theme ở đây
+  },
+  listItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: SPACING.sm,
   },
-  taskItemBorder: {
-    borderBottomWidth: 1,
-    marginBottom: SPACING.sm,
+  listItemBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.disabled, // Sử dụng theme ở đây
   },
-  taskItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  listItemDetails: {
     flex: 1,
-  },
-  taskDetails: {
     marginLeft: SPACING.sm,
-    flex: 1,
   },
-  taskTitle: {
+  listItemTitle: {
     fontSize: FONT_SIZE.body,
     fontWeight: FONT_WEIGHT.medium,
     marginBottom: 2,
+    color: theme.colors.text, // Sử dụng theme ở đây
   },
-  docItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
+  listItemSubtitle: {
+    fontSize: FONT_SIZE.small,
+    color: theme.colors.disabled, // Sử dụng theme ở đây
   },
-  docItemBorder: {
-    borderBottomWidth: 1,
-    marginBottom: SPACING.sm,
-  },
-  docItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  docDetails: {
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary, // Sử dụng theme ở đây
     marginLeft: SPACING.sm,
-    flex: 1,
-  },
-  docTitle: {
-    fontSize: FONT_SIZE.body,
-    fontWeight: FONT_WEIGHT.medium,
-    marginBottom: 2,
   },
   fab: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
+    backgroundColor: theme.colors.primary, // Sử dụng theme ở đây
   },
+  fabIcon: {
+      color: theme.colors.onPrimary // Sử dụng theme ở đây
+  }
 });
 
-export default HomeScreen; 
+const HomeScreen: React.FC = () => {
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+  const { theme, isDarkMode } = useTheme();
+  const { user } = useAuth();
+  const styles = getStyles(theme, isDarkMode); // Tạo styles bên trong component
+  
+  // State for API data
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [greeting, setGreeting] = useState('');
+  
+  const [myTasks, setMyTasks] = useState<Task[]>([]);
+  const [recentNotifications, setRecentNotifications] = useState<Notification[]>([]);
+  const [recentDocuments, setRecentDocuments] = useState<Document[]>([]);
+  
+  const [isChatModalVisible, setIsChatModalVisible] = useState(false);
+
+  const fetchHomeScreenData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Gọi song song các API
+      const [tasksResponse, notificationsResponse, documentsResponse] = await Promise.all([
+        apiGetTasks({ limit: 5, sortBy: 'dueDate:asc', status: 'pending' }),
+        apiGetNotifications({ limit: 5, read: false }),
+        apiGetDocuments({ limit: 3, sortBy: 'updatedAt:desc' })
+      ]);
+
+      // API functions might return array directly due to generic types <Task[]>, <Notification[]>
+      // Add safety check to ensure the response is actually an array.
+      // For apiGetDocuments, we assume data is in response.data as no generic was used.
+      setMyTasks(Array.isArray(tasksResponse) ? tasksResponse : []);
+      setRecentNotifications(Array.isArray(notificationsResponse) ? notificationsResponse : []);
+      setRecentDocuments(Array.isArray(documentsResponse?.data?.data) ? documentsResponse.data.data : []); // Keep .data.data for this one as it didn't use generic
+
+    } catch (err: any) {
+      console.error('Error fetching home screen data:', err);
+      // Set states to empty arrays in case of error to prevent crashes
+      setMyTasks([]);
+      setRecentNotifications([]);
+      setRecentDocuments([]);
+      setError('Không thể tải dữ liệu. Vui lòng thử lại.');
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchHomeScreenData();
+
+    const hours = new Date().getHours();
+    let newGreeting = '';
+    if (hours < 12) newGreeting = 'Chào buổi sáng';
+    else if (hours < 18) newGreeting = 'Chào buổi chiều';
+    else newGreeting = 'Chào buổi tối';
+    setGreeting(newGreeting);
+  }, [fetchHomeScreenData]);
+  
+  const handleRefresh = () => {
+    fetchHomeScreenData();
+  };
+  
+  const handleNotificationPress = () => navigation.navigate(ROUTES.MAIN.NOTIFICATIONS);
+  const handleSettingsPress = () => navigation.navigate(ROUTES.MAIN.SETTINGS_NAVIGATOR, { screen: ROUTES.MAIN.SETTINGS });
+  const handleTasksPress = () => navigation.navigate(ROUTES.MAIN.TASKS);
+  const handleDocumentsPress = () => navigation.navigate(ROUTES.MAIN.DOCUMENTS);
+  
+  const openChatModal = () => setIsChatModalVisible(true);
+  const closeChatModal = () => setIsChatModalVisible(false);
+
+  const renderEmptyState = (message: string) => (
+    <View style={styles.emptyStateContainer}>
+      <Text style={styles.emptyStateText}>{message}</Text>
+    </View>
+  );
+
+  if (isLoading && !myTasks.length && !recentNotifications.length && !recentDocuments.length) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: SPACING.sm, color: theme.colors.text }}>Đang tải dữ liệu...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Icon name="alert-circle-outline" size={48} color={theme.colors.error} />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity onPress={handleRefresh} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.containerWrapper}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+          />
+        }
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>{greeting}</Text>
+            <Text style={styles.username}>{user?.name || 'Người dùng'}</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleNotificationPress}>
+              <Icon name="bell-outline" size={22} color={theme.colors.text} />
+              {recentNotifications.filter(n => !n.read).length > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationCount}>
+                    {recentNotifications.filter(n => !n.read).length > 99 ? '99+' : recentNotifications.filter(n => !n.read).length}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={handleSettingsPress}>
+              <Icon name="cog-outline" size={22} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Công việc của tôi ({myTasks.length})</Text>
+            <TouchableOpacity onPress={handleTasksPress}>
+              <Text style={styles.viewAllText}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          {myTasks.length === 0 && !isLoading && renderEmptyState('Không có công việc nào cần làm ngay.')}
+          {myTasks.slice(0, 3).map((task, idx) => (
+            <View key={task.id} style={[styles.listItem, idx < myTasks.slice(0, 3).length - 1 && styles.listItemBorder]}>
+              <Icon
+                name={task.completed ? 'checkbox-marked-circle-outline' : task.overdue ? 'alert-circle-outline' : 'clock-outline'}
+                size={22}
+                color={task.completed ? theme.colors.success : task.overdue ? theme.colors.error : theme.colors.secondary}
+              />
+              <View style={styles.listItemDetails}>
+                <Text style={styles.listItemTitle} numberOfLines={1}>{task.title}</Text>
+                <Text style={styles.listItemSubtitle}>
+                  Hạn: {new Date(task.dueDate).toLocaleDateString('vi-VN')} - Ưu tiên: {task.priority}
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={20} color={theme.colors.disabled} />
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Thông báo gần đây ({recentNotifications.length})</Text>
+            <TouchableOpacity onPress={handleNotificationPress}>
+              <Text style={styles.viewAllText}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          {recentNotifications.length === 0 && !isLoading && renderEmptyState('Không có thông báo mới.')}
+          {recentNotifications.slice(0,3).map((item, idx) => (
+             <TouchableOpacity key={item.id} onPress={() => {/* Navigate to notification detail or related screen */}}>
+                <View style={[styles.listItem, idx < recentNotifications.slice(0, 3).length - 1 && styles.listItemBorder]}>
+                  <Icon 
+                    name={item.type === 'task' ? 'clipboard-text-outline' : item.type === 'document' ? 'file-document-outline' : 'comment-alert-outline' } 
+                    size={22} 
+                    color={item.read ? theme.colors.disabled : theme.colors.primary}
+                  />
+                  <View style={styles.listItemDetails}>
+                    <Text style={[styles.listItemTitle, {fontWeight: item.read ? FONT_WEIGHT.regular : FONT_WEIGHT.bold }]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.listItemSubtitle} numberOfLines={1}>{item.message}</Text>
+                    <Text style={[styles.listItemSubtitle, {fontSize: FONT_SIZE.small}]}>{new Date(item.createdAt).toLocaleString('vi-VN')}</Text>
+                  </View>
+                  {!item.read && <View style={styles.unreadDot} />}
+               </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Tài liệu gần đây ({recentDocuments.length})</Text>
+            <TouchableOpacity onPress={handleDocumentsPress}>
+              <Text style={styles.viewAllText}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+          {recentDocuments.length === 0 && !isLoading && renderEmptyState('Không có tài liệu nào được cập nhật gần đây.')}
+          {recentDocuments.map((doc, idx) => (
+            <View key={doc.id} style={[styles.listItem, idx < recentDocuments.length - 1 && styles.listItemBorder]}>
+              <Icon
+                name={
+                  doc.type === 'pdf' ? 'file-pdf-box' :
+                  doc.type === 'doc' || doc.type === 'docx' ? 'file-word-box' :
+                  doc.type === 'xls' || doc.type === 'xlsx' ? 'file-excel-box' :
+                  doc.type === 'ppt' || doc.type === 'pptx' ? 'file-powerpoint-box' :
+                  'file-document-outline'
+                }
+                size={24}
+                color={theme.colors.primary}
+              />
+              <View style={styles.listItemDetails}>
+                <Text style={styles.listItemTitle} numberOfLines={1}>{doc.title}</Text>
+                <Text style={styles.listItemSubtitle}>
+                  {doc.size} • Cập nhật: {new Date(doc.updatedAt).toLocaleDateString('vi-VN')}
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={20} color={theme.colors.disabled} />
+            </View>
+          ))}
+        </View>
+
+      </ScrollView>
+
+      <FAB
+        style={styles.fab}
+        icon="robot-outline"
+        color={styles.fabIcon.color}
+        onPress={openChatModal}
+      />
+      <AIChatModal visible={isChatModalVisible} onClose={closeChatModal} />
+    </View>
+  );
+};
+
+export default HomeScreen;
