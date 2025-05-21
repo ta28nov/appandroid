@@ -15,7 +15,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AdvancedSearchBar from '../../../components/common/AdvancedSearchBar';
 import EmptyStateComponent from '../../../components/common/EmptyStateComponent';
-import { mockTasks, mockDocuments } from '../../../utils/mockData';
+import apiClient from '../../../services/api';
 
 // Định nghĩa các loại kết quả tìm kiếm
 type SearchResultType = 'task' | 'document' | 'user' | 'message' | 'forum';
@@ -63,144 +63,50 @@ const GlobalSearchResultsScreen: React.FC = () => {
   }, [searchQuery]);
   
   // Thực hiện tìm kiếm
-  const performSearch = (query: string) => {
+  const performSearch = async (query: string) => {
     setLoading(true);
-    
-    // Giả lập độ trễ mạng
-    setTimeout(() => {
-      const filteredResults = getSearchResults(query);
-      setResults(filteredResults);
-      setLoading(false);
-    }, 800);
-  };
-  
-  // Lấy kết quả tìm kiếm dựa trên query
-  const getSearchResults = (query: string): { title: string; data: SearchResult[] }[] => {
-    const lowercaseQuery = query.toLowerCase();
-    
-    // Tìm kiếm trong nhiệm vụ
-    const taskResults = mockTasks
-      .filter(
-        task =>
-          task.title.toLowerCase().includes(lowercaseQuery) ||
-          task.description.toLowerCase().includes(lowercaseQuery)
-      )
-      .map(task => ({
-        id: task.id,
+    try {
+      // Gọi API tìm kiếm task và document
+      const [tasksRes, documentsRes] = await Promise.all([
+        apiClient.get('/tasks', { params: { search: query } }),
+        apiClient.get('/documents', { params: { search: query } }),
+      ]);
+      const taskResults: SearchResult[] = (tasksRes.data?.tasks || []).map((task: any) => ({
+        id: task._id || task.id,
         title: task.title,
         subtitle: task.completed ? 'Hoàn thành' : task.overdue ? 'Quá hạn' : 'Đang thực hiện',
         description: task.description,
-        type: 'task' as SearchResultType,
+        type: 'task',
         timestamp: task.dueDate,
         icon: 'checkbox-marked-outline',
         iconColor: task.priority === 'High' ? '#F44336' : task.priority === 'Medium' ? '#FF9800' : '#4CAF50',
       }));
-    
-    // Tìm kiếm trong tài liệu
-    const documentResults = mockDocuments
-      .filter(
-        doc =>
-          doc.title.toLowerCase().includes(lowercaseQuery) ||
-          doc.description.toLowerCase().includes(lowercaseQuery) ||
-          doc.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
-      )
-      .map(doc => ({
-        id: doc.id,
+      const documentResults: SearchResult[] = (documentsRes.data?.documents || []).map((doc: any) => ({
+        id: doc._id || doc.id,
         title: doc.title,
-        subtitle: doc.type.split('/').pop()?.toUpperCase(),
+        subtitle: doc.type?.toUpperCase(),
         description: doc.description,
-        type: 'document' as SearchResultType,
+        type: 'document',
         timestamp: doc.updatedAt,
         icon: 'file-document-outline',
         iconColor: '#2196F3',
       }));
-    
-    // Tìm kiếm trong người dùng (mẫu)
-    const userResults: SearchResult[] = [
-      {
-        id: 'user1',
-        title: 'Nguyễn Văn A',
-        subtitle: 'Quản lý dự án',
-        type: 'user' as SearchResultType,
-        avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-      },
-      {
-        id: 'user2',
-        title: 'Trần Thị B',
-        subtitle: 'Thiết kế UI/UX',
-        type: 'user' as SearchResultType,
-        avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      },
-    ].filter(user => user.title.toLowerCase().includes(lowercaseQuery) || user.subtitle?.toLowerCase().includes(lowercaseQuery));
-    
-    // Tìm kiếm trong tin nhắn (mẫu)
-    const messageResults: SearchResult[] = [
-      {
-        id: 'msg1',
-        title: 'Dự án mới',
-        subtitle: 'Nguyễn Văn A',
-        description: 'Chúng ta cần hoàn thành đề xuất dự án trước thứ 6.',
-        type: 'message' as SearchResultType,
-        timestamp: '10:30 AM',
-        icon: 'message-text-outline',
-        iconColor: '#9C27B0',
-      },
-      {
-        id: 'msg2',
-        title: 'Cuộc họp sáng nay',
-        subtitle: 'Trần Thị B',
-        description: 'Gửi cho tôi biên bản cuộc họp sáng nay nhé.',
-        type: 'message' as SearchResultType,
-        timestamp: 'Hôm qua',
-        icon: 'message-text-outline',
-        iconColor: '#9C27B0',
-      },
-    ].filter(
-      msg =>
-        msg.title.toLowerCase().includes(lowercaseQuery) ||
-        msg.subtitle?.toLowerCase().includes(lowercaseQuery) ||
-        msg.description?.toLowerCase().includes(lowercaseQuery)
-    );
-    
-    // Tìm kiếm trong diễn đàn (mẫu)
-    const forumResults: SearchResult[] = [
-      {
-        id: 'post1',
-        title: 'Đề xuất cải tiến quy trình làm việc',
-        subtitle: 'Lê Văn C',
-        description: 'Tôi có một số ý tưởng để cải thiện quy trình làm việc hiện tại...',
-        type: 'forum' as SearchResultType,
-        timestamp: '2 ngày trước',
-        icon: 'forum-outline',
-        iconColor: '#FF5722',
-      },
-      {
-        id: 'post2',
-        title: 'Các công cụ tăng năng suất',
-        subtitle: 'Phạm Thị D',
-        description: 'Danh sách các công cụ và ứng dụng hữu ích để tăng năng suất làm việc...',
-        type: 'forum' as SearchResultType,
-        timestamp: '1 tuần trước',
-        icon: 'forum-outline',
-        iconColor: '#FF5722',
-      },
-    ].filter(
-      post =>
-        post.title.toLowerCase().includes(lowercaseQuery) ||
-        post.subtitle?.toLowerCase().includes(lowercaseQuery) ||
-        post.description?.toLowerCase().includes(lowercaseQuery)
-    );
-    
-    // Tạo danh sách kết quả theo nhóm
-    const sections = [
-      { title: 'Nhiệm vụ', data: taskResults },
-      { title: 'Tài liệu', data: documentResults },
-      { title: 'Người dùng', data: userResults },
-      { title: 'Tin nhắn', data: messageResults },
-      { title: 'Diễn đàn', data: forumResults },
-    ].filter(section => section.data.length > 0);
-    
-    return sections;
+      // Static user/message/forum results (or empty)
+      const userResults: SearchResult[] = [];
+      const messageResults: SearchResult[] = [];
+      const forumResults: SearchResult[] = [];
+      const sections = [
+        { title: 'Nhiệm vụ', data: taskResults },
+        { title: 'Tài liệu', data: documentResults },
+        { title: 'Người dùng', data: userResults },
+        { title: 'Tin nhắn', data: messageResults },
+        { title: 'Diễn đàn', data: forumResults },
+      ].filter(section => section.data.length > 0);
+      setResults(sections);
+    } catch (error) {
+      setResults([]);
+    }
+    setLoading(false);
   };
   
   // Xử lý khi nhấn vào một kết quả
@@ -496,4 +402,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GlobalSearchResultsScreen; 
+export default GlobalSearchResultsScreen;

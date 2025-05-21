@@ -30,8 +30,8 @@ const LoginScreen: React.FC = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { login } = useAuth();
   const { theme, isDarkMode } = useTheme();
-  const [email, setEmail] = useState('user@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
@@ -93,7 +93,7 @@ const LoginScreen: React.FC = () => {
   };
   
   // Placeholder logo (you should replace this with your actual logo)
-  const logoPlaceholder = { uri: 'https://via.placeholder.com/200x200.png?text=Logo' };
+  const logoPlaceholder = { uri: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=400&q=80' };
   
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>

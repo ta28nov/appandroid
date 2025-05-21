@@ -60,8 +60,8 @@ const SplashScreen: React.FC = () => {
     ],
   };
   
-  // Placeholder logo (you should replace this with your actual logo)
-  const logoPlaceholder = { uri: 'https://via.placeholder.com/200x200.png?text=Logo' };
+  // Unsplash logo image
+  const logoPlaceholder = { uri: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=400&q=80' };
   
   return (
     <View
@@ -118,4 +118,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SplashScreen; 
+export default SplashScreen;

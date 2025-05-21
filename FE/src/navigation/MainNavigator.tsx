@@ -3,15 +3,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ROUTES } from '../utils/constants';
 import { MainTabParamList } from './types';
 import { useTheme } from '../hooks/useTheme';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import SettingsNavigator from './SettingsNavigator';
+import ChatNavigator from './ChatNavigator';
 
 // Import screens/navigators for Tab items
 import HomeScreen from '../screens/Main/HomeScreen';
 import DocumentScreen from '../screens/Main/DocumentScreen';
 import TaskManagementScreen from '../screens/Main/TaskManagementScreen';
 import ForumScreen from '../screens/Main/ForumScreen';
-import ChatListScreen from '../screens/Main/ChatListScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -74,12 +74,13 @@ const MainNavigator = () => {
       />
       <Tab.Screen
         name={ROUTES.MAIN.CHAT_LIST}
-        component={ChatListScreen}
+        component={ChatNavigator}
         options={{
           title: 'Chat',
           tabBarIcon: ({ color, size }) => (
             <Icon name="message-outline" color={color} size={size} />
           ),
+          headerShown: false,
         }}
       />
       <Tab.Screen
@@ -97,4 +98,4 @@ const MainNavigator = () => {
   );
 };
 
-export default MainNavigator; 
+export default MainNavigator;

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import FAIcon from 'react-native-vector-icons/FontAwesome5';
 import { useTheme } from '../../hooks/useTheme';
 import { COLORS } from '../../styles/theme';
@@ -102,9 +102,10 @@ const DocumentScreen: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.get('/documents');
-      // Assuming API returns an array of documents in res.data
-      setDocuments(res.data || []);
-      setFilteredDocuments(res.data || []);
+      // Đảm bảo luôn là array, tránh lỗi spread non-iterable
+      const docs = Array.isArray(res.data) ? res.data : [];
+      setDocuments(docs);
+      setFilteredDocuments(docs);
     } catch (error) {
       console.error('Lỗi khi tải tài liệu:', error);
       setDocuments([]);
@@ -311,7 +312,12 @@ const DocumentScreen: React.FC = () => {
       >
         {/* Biểu tượng loại tài liệu */}
         <View style={styles.documentIconContainer}>
-          <Icon name={documentIcon.name} size={32} color={documentIcon.color} />
+          {/* Ép kiểu name về 'any' để tránh lỗi TS với @expo/vector-icons */}
+          <Icon
+            name={documentIcon.name as any}
+            size={32}
+            color={documentIcon.color}
+          />
         </View>
         
         {/* Thông tin tài liệu */}
@@ -411,7 +417,7 @@ const DocumentScreen: React.FC = () => {
         {/* Phần header hiển thị biểu tượng và nút yêu thích */}
         <View style={styles.gridItemHeader}>
           {/* Biểu tượng loại tài liệu (PDF, Word, Excel, v.v.) */}
-          <Icon name={documentIcon.name} size={32} color={documentIcon.color} />
+          <Icon name={documentIcon.name as any} size={32} color={documentIcon.color} />
           
           {/* Nút yêu thích - toggle trạng thái yêu thích khi nhấn */}
           <TouchableOpacity
@@ -900,5 +906,24 @@ function documentTypeLabel(type: string) {
     default: return type;
   }
 }
+
+// Helper type: union các tên icon thực tế dùng cho MaterialCommunityIcons
+// (bổ sung nếu có thêm icon mới)
+type MaterialIconName =
+  | 'file-pdf-box'
+  | 'file-word'
+  | 'file-excel'
+  | 'file-powerpoint'
+  | 'file-image'
+  | 'file-document-outline'
+  | 'file-outline'
+  | 'star'
+  | 'star-outline'
+  | 'share-variant'
+  | 'delete-outline'
+  | 'account-multiple'
+  | 'format-list-bulleted'
+  | 'grid'
+  | 'plus';
 
 export default DocumentScreen;

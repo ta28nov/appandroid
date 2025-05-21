@@ -61,7 +61,7 @@ src/
 - **Xem bài đăng**: Danh sách các bài viết trên diễn đàn
 - **Lọc theo chủ đề**: Các thẻ tag để phân loại bài viết
 - **Tương tác**: Thích và bình luận bài viết
- 
+
 ### 6. Nhắn tin
 
 - **Danh sách chat**: Xem tất cả các cuộc trò chuyện
@@ -98,7 +98,7 @@ src/
 10. **Tích hợp bên thứ ba**: Kết nối với các dịch vụ khác (ví dụ: Lịch Google, Drive).
 11. **Tích hợp AI**: Sử dụng AI để phân tích nội dung, đề xuất giải pháp và tối ưu hóa quy trình làm việc.
 12. **Quản lý Phiên bản Tài liệu**: Thêm chức năng theo dõi và quản lý các phiên bản của tài liệu.
-13. **Quản lý Hồ sơ Nâng cao**: Cho phép người dùng cập nhật chi tiết hồ sơ cá nhân và quản lý cài đặt quyền riêng tư. 
+13. **Quản lý Hồ sơ Nâng cao**: Cho phép người dùng cập nhật chi tiết hồ sơ cá nhân và quản lý cài đặt quyền riêng tư.
 
 ## Hướng dẫn phát triển
 
@@ -132,8 +132,8 @@ npm run web
 
 Để thử nghiệm ứng dụng, bạn có thể sử dụng tài khoản mẫu:
 
-- **Email**: user@example.com
-- **Mật khẩu**: password123
+- **Email**: an.nguyen@example.com
+- **Mật khẩu**: 123456
 
 ## Lưu ý phát triển
 
@@ -153,6 +153,7 @@ npm run web
 ### Điều hướng
 
 Ứng dụng sử dụng React Navigation với cấu trúc sau:
+
 - **AppNavigator**: Điều hướng cấp cao nhất, xác định luồng xác thực
 - **AuthNavigator**: Điều hướng giữa các màn hình xác thực (đăng nhập, đăng ký, quên mật khẩu)
 - **MainNavigator**: Điều hướng giữa các tab chính sau khi đăng nhập (trang chủ, tài liệu, công việc, diễn đàn, chat)
@@ -163,51 +164,47 @@ npm run web
 - **Global Styles**: Các style được tái sử dụng trong toàn ứng dụng
 - **Component Styles**: Style cụ thể cho từng component
 
-
 1. Các Tính Năng AI Tiềm Năng (Ngoài Chatbot):
-Tóm tắt Thông minh:
-Tài liệu: Nút "Tóm tắt bằng AI" trong màn hình chi tiết tài liệu để người dùng nắm nhanh ý chính.
-Thảo luận: Tóm tắt các chủ đề dài trên Diễn đàn.
-Đề xuất Thông minh:
-Công việc: Gợi ý mức độ ưu tiên, người thực hiện phù hợp, hoặc tự động phân rã công việc lớn.
-Tìm kiếm: Khi tìm kiếm, AI gợi ý các tài liệu/công việc/thảo luận liên quan mà người dùng có thể đã bỏ qua.
-Liên kết: Tự động gợi ý liên kết giữa các công việc và tài liệu liên quan.
-Phân tích & Cảnh báo:
-Phân tích tiến độ dự án (nếu có) và cảnh báo sớm về nguy cơ chậm deadline.
-Phát hiện các công việc bị trùng lặp hoặc có nội dung tương tự.
-
-
-
+   Tóm tắt Thông minh:
+   Tài liệu: Nút "Tóm tắt bằng AI" trong màn hình chi tiết tài liệu để người dùng nắm nhanh ý chính.
+   Thảo luận: Tóm tắt các chủ đề dài trên Diễn đàn.
+   Đề xuất Thông minh:
+   Công việc: Gợi ý mức độ ưu tiên, người thực hiện phù hợp, hoặc tự động phân rã công việc lớn.
+   Tìm kiếm: Khi tìm kiếm, AI gợi ý các tài liệu/công việc/thảo luận liên quan mà người dùng có thể đã bỏ qua.
+   Liên kết: Tự động gợi ý liên kết giữa các công việc và tài liệu liên quan.
+   Phân tích & Cảnh báo:
+   Phân tích tiến độ dự án (nếu có) và cảnh báo sớm về nguy cơ chậm deadline.
+   Phát hiện các công việc bị trùng lặp hoặc có nội dung tương tự.
 
 🎨🌟 Bộ UI/UX Hoàn chỉnh cho Digital Workplace (Modern & Bright)
 
-Thành phần	Màu gốc	Hover	Active/Focus
-Header background	#FAFAFA	không đổi	bóng mờ nhẹ (shadow)
-Header text	#2979FF	#1C5DCC (tối nhẹ lại)	gạch dưới (underline)
-Background tổng thể	#FAFAFA + #E0E0E0	làm mờ nhẹ khi hover section	
-Button chính (Primary)	nền #2979FF, text #FFFFFF	nền #1C5DCC, text #FFFFFF	nền #004AAD
-Button phụ (Secondary)	nền #A0C4FF, text #2979FF	nền #7EB8FF, text #2979FF	nền #5AA4FF
-CTA nổi bật	nền #FFC300, text #424242	nền #FFB000, text #424242	nền #FF9F00
-Text chính	#424242	#2979FF khi hover link	
-Card viền/hover	viền #2979FF	viền đậm hơn + đổ bóng nhẹ	shadow nổi bật hơn
-Icon chính	#2979FF	đổi #1C5DCC khi hover	
-Icon phụ	#A0C4FF	#7EB8FF khi hover	
+Thành phần Màu gốc Hover Active/Focus
+Header background #FAFAFA không đổi bóng mờ nhẹ (shadow)
+Header text #2979FF #1C5DCC (tối nhẹ lại) gạch dưới (underline)
+Background tổng thể #FAFAFA + #E0E0E0 làm mờ nhẹ khi hover section
+Button chính (Primary) nền #2979FF, text #FFFFFF nền #1C5DCC, text #FFFFFF nền #004AAD
+Button phụ (Secondary) nền #A0C4FF, text #2979FF nền #7EB8FF, text #2979FF nền #5AA4FF
+CTA nổi bật nền #FFC300, text #424242 nền #FFB000, text #424242 nền #FF9F00
+Text chính #424242 #2979FF khi hover link
+Card viền/hover viền #2979FF viền đậm hơn + đổ bóng nhẹ shadow nổi bật hơn
+Icon chính #2979FF đổi #1C5DCC khi hover
+Icon phụ #A0C4FF #7EB8FF khi hover
 ✍️ Kiểu chữ đề xuất:
 
-Loại text	Font Family	Font Weight	Size
-Tiêu đề lớn (H1)	Poppins, sans-serif	700 (bold)	28–32px
-Tiêu đề nhỏ (H2–H3)	Poppins, sans-serif	600 (semi-bold)	20–24px
-Nội dung chính	Inter, sans-serif	400–500	14–16px
-CTA/Buttons	Inter hoặc Poppins	600 (semi-bold)	16px
-Subtext/phụ đề	Inter	400	12–14px
+Loại text Font Family Font Weight Size
+Tiêu đề lớn (H1) Poppins, sans-serif 700 (bold) 28–32px
+Tiêu đề nhỏ (H2–H3) Poppins, sans-serif 600 (semi-bold) 20–24px
+Nội dung chính Inter, sans-serif 400–500 14–16px
+CTA/Buttons Inter hoặc Poppins 600 (semi-bold) 16px
+Subtext/phụ đề Inter 400 12–14px
 ✅ Poppins → tròn nhẹ, hiện đại, thoáng đẹp.
 ✅ Inter → chữ body mảnh gọn, đọc rất sướng mắt trong app/business.
 
 ✨ Các hiệu ứng giao diện nên có:
 
-Hiệu ứng	Mô tả
-Hover Button	nền đậm hơn 10–15%, nhẹ nhàng (transition 0.3s)
-Card Hover	shadow nhẹ (0 2px 8px rgba(41,121,255,0.2)), scale 1.02
-Link Hover	màu text đổi sang #2979FF, underline mảnh
-Input Focus	viền #2979FF, glow nhẹ xung quanh input
-Animation nhỏ	fade-in nhẹ (opacity + move up 10px) khi load component
+Hiệu ứng Mô tả
+Hover Button nền đậm hơn 10–15%, nhẹ nhàng (transition 0.3s)
+Card Hover shadow nhẹ (0 2px 8px rgba(41,121,255,0.2)), scale 1.02
+Link Hover màu text đổi sang #2979FF, underline mảnh
+Input Focus viền #2979FF, glow nhẹ xung quanh input
+Animation nhỏ fade-in nhẹ (opacity + move up 10px) khi load component

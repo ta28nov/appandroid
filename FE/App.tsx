@@ -1,12 +1,13 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { LogBox, Text, View, useColorScheme } from 'react-native';
+import { LogBox, Text, View, useColorScheme, StatusBar } from 'react-native';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AuthProvider } from './src/contexts/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CustomLightTheme } from './src/styles/theme';
-import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Ignore specific warnings that might appear during development
 LogBox.ignoreLogs([
@@ -19,10 +20,9 @@ const AppWrapper = () => {
   const [isReady, setIsReady] = React.useState(false);
 
   useEffect(() => {
-    // Small delay to ensure context is properly initialized
     const timer = setTimeout(() => {
       setIsReady(true);
-    }, 100); // Increase delay to 100ms to ensure everything loads
+    }, 100);
     return () => clearTimeout(timer);
   }, []);
 
@@ -34,20 +34,34 @@ const AppWrapper = () => {
     );
   }
 
-  return (
-    <AppNavigator />
-  );
+  return <AppNavigator />;
 };
 
 export default function App() {
   const colorScheme = useColorScheme();
-
+  const [fontsLoaded] = useFonts({
+    ...MaterialCommunityIcons.font,
+    Inter: require('./assets/fonts/Inter-Regular.ttf'),
+    'Inter-Bold': require('./assets/fonts/Inter-Bold.ttf'),
+    Poppins: require('./assets/fonts/Poppins-Regular.ttf'),
+    'Poppins-Bold': require('./assets/fonts/Poppins-Bold.ttf'),
+  });
+  // Lấy theme từ CustomLightTheme hoặc context nếu cần
+  const theme = CustomLightTheme;
+  const isDarkMode = colorScheme === 'dark';
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: CustomLightTheme.colors.background }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
           <ThemeProvider>
-            <StatusBar style="auto" />
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.background} />
             <AppWrapper />
           </ThemeProvider>
         </AuthProvider>

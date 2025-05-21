@@ -14,6 +14,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { FONT_SIZE, FONT_WEIGHT, SPACING } from '../../../styles/globalStyles';
 import Card from '../../../components/common/Card';
 import ChartComponent from '../../../components/feature-specific/Reports/ChartComponent';
+import { apiGetProjectById } from '../../../services/api';
 
 // Ví dụ định nghĩa params
 type ResourceViewParams = {
@@ -21,59 +22,6 @@ type ResourceViewParams = {
     projectId?: string;
     teamId?: string;
   };
-};
-
-// Dữ liệu mẫu cho các biểu đồ
-const mockAllocationData = {
-  team: [
-    { name: 'Nguyễn Văn A', value: 85, color: '#4CAF50' },
-    { name: 'Trần Thị B', value: 65, color: '#FFC107' },
-    { name: 'Lê Văn C', value: 95, color: '#F44336' },
-    { name: 'Phạm Thị D', value: 50, color: '#2196F3' },
-    { name: 'Hoàng Văn E', value: 70, color: '#9C27B0' },
-  ],
-  types: [
-    { name: 'Phát triển', value: 40, color: '#4CAF50' },
-    { name: 'Thiết kế', value: 15, color: '#2196F3' },
-    { name: 'Testing', value: 20, color: '#FFC107' },
-    { name: 'Quản lý', value: 10, color: '#9C27B0' },
-    { name: 'Khác', value: 15, color: '#607D8B' },
-  ],
-  timeline: {
-    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
-    datasets: [
-      {
-        name: 'Phát triển',
-        data: [30, 35, 45, 40, 50, 55, 60, 65, 60, 50, 45, 40],
-        color: '#4CAF50',
-      },
-      {
-        name: 'Thiết kế',
-        data: [20, 25, 30, 20, 15, 10, 15, 20, 25, 30, 20, 15],
-        color: '#2196F3',
-      },
-      {
-        name: 'Testing',
-        data: [10, 15, 20, 25, 30, 25, 20, 15, 10, 15, 20, 25],
-        color: '#FFC107',
-      },
-    ],
-  },
-  utilization: {
-    labels: ['T2', 'T3', 'T4', 'T1', 'T2', 'T3', 'T4'],
-    datasets: [
-      {
-        name: 'Đã sử dụng',
-        data: [65, 75, 80, 85, 80, 75, 70],
-        color: '#2196F3',
-      },
-      {
-        name: 'Trống',
-        data: [35, 25, 20, 15, 20, 25, 30],
-        color: '#ECEFF1',
-      },
-    ],
-  },
 };
 
 /**
@@ -88,14 +36,28 @@ const ResourceViewScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'team' | 'project'>('team');
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
+  const [allocationData, setAllocationData] = useState<any>(null);
   
   // Lấy dữ liệu
   useEffect(() => {
-    // Giả lập việc tải dữ liệu
-    setTimeout(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Giả sử lấy theo projectId, có thể điều chỉnh endpoint phù hợp
+        const projectId = route.params?.projectId;
+        if (projectId) {
+          const res = await apiGetProjectById(projectId);
+          setAllocationData(res.data?.allocationData || null);
+        } else {
+          setAllocationData(null);
+        }
+      } catch (e) {
+        setAllocationData(null);
+      }
       setLoading(false);
-    }, 1000);
-  }, []);
+    };
+    fetchData();
+  }, [route.params?.projectId, activeTab, timeRange]);
   
   // Thay đổi khung thời gian
   const handleTimeRangeChange = (range: 'week' | 'month' | 'quarter' | 'year') => {
@@ -240,7 +202,13 @@ const ResourceViewScreen: React.FC = () => {
     if (loading) {
       return renderLoadingState();
     }
-    
+    if (!allocationData) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: theme.colors.text }]}>Không có dữ liệu phân bổ nguồn lực.</Text>
+        </View>
+      );
+    }
     return (
       <ScrollView 
         style={styles.scrollContainer}
@@ -255,15 +223,7 @@ const ResourceViewScreen: React.FC = () => {
           <View style={styles.horizontalBarChart}>
             <ChartComponent
               type="horizontalBar"
-              data={{
-                labels: mockAllocationData.team.map(item => item.name),
-                datasets: [
-                  {
-                    data: mockAllocationData.team.map(item => item.value),
-                    colors: mockAllocationData.team.map(item => item.color),
-                  },
-                ],
-              }}
+              data={allocationData.teamChart || { labels: [], datasets: [] }}
               height={250}
               width={width - 64}
               showValue={true}
@@ -285,15 +245,7 @@ const ResourceViewScreen: React.FC = () => {
           <View style={styles.pieChartContainer}>
             <ChartComponent
               type="pie"
-              data={{
-                labels: mockAllocationData.types.map(item => item.name),
-                datasets: [
-                  {
-                    data: mockAllocationData.types.map(item => item.value),
-                    colors: mockAllocationData.types.map(item => item.color),
-                  },
-                ],
-              }}
+              data={allocationData.typeChart || { labels: [], datasets: [] }}
               height={220}
               width={width - 64}
               showValue={true}
@@ -312,14 +264,7 @@ const ResourceViewScreen: React.FC = () => {
           <View style={styles.lineChartContainer}>
             <ChartComponent
               type="line"
-              data={{
-                labels: mockAllocationData.timeline.labels,
-                datasets: mockAllocationData.timeline.datasets.map(ds => ({
-                  data: ds.data,
-                  color: ds.color,
-                  label: ds.name,
-                })),
-              }}
+              data={allocationData.timelineChart || { labels: [], datasets: [] }}
               height={220}
               width={width - 64}
               showValue={false}
@@ -339,14 +284,7 @@ const ResourceViewScreen: React.FC = () => {
           <View style={styles.stackedBarChartContainer}>
             <ChartComponent
               type="stackedBar"
-              data={{
-                labels: mockAllocationData.utilization.labels,
-                datasets: mockAllocationData.utilization.datasets.map(ds => ({
-                  data: ds.data,
-                  color: ds.color,
-                  label: ds.name,
-                })),
-              }}
+              data={allocationData.utilizationChart || { labels: [], datasets: [] }}
               height={220}
               width={width - 64}
               showValue={true}
@@ -461,4 +399,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ResourceViewScreen; 
+export default ResourceViewScreen;

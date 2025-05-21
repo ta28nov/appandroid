@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { COLORS } from '../../styles/theme';
 import { FONT_SIZE, FONT_WEIGHT, SPACING, SHADOW } from '../../styles/globalStyles';
@@ -59,8 +59,10 @@ const NotificationScreen: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiGetNotifications();
-      setNotifications(res.data || []);
-      setFilteredNotifications(res.data || []);
+      // Đảm bảo luôn là array, tránh lỗi spread non-iterable
+      const notiArr = Array.isArray(res.data) ? res.data : [];
+      setNotifications(notiArr);
+      setFilteredNotifications(notiArr);
     } catch (error) {
       setSnackbar({ visible: true, message: 'Lỗi khi tải thông báo', type: 'error' });
       setNotifications([]);
@@ -393,7 +395,11 @@ const NotificationScreen: React.FC = () => {
           data={filteredNotifications}
           renderItem={renderNotificationItem}
           keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={
+            filteredNotifications.length === 0
+              ? [styles.listContent, { flex: 1, justifyContent: 'center' }]
+              : styles.listContent
+          }
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -505,4 +511,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NotificationScreen; 
+export default NotificationScreen;
