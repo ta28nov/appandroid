@@ -29,6 +29,7 @@ const chatMessageSchema = new mongoose.Schema(
   },
   {
     timestamps: { createdAt: 'timestamp', updatedAt: false }, // Sử dụng trường 'timestamp' cho thời gian tạo
+    collection: 'chatMessages'
   }
 );
 

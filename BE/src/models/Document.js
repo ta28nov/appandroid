@@ -46,13 +46,19 @@ const documentSchema = new mongoose.Schema(
     },
     sizeBytes: {
       type: Number,
-      required: [true, 'Vui lòng cung cấp kích thước tệp bằng byte'],
       min: 0,
     },
     storageUrl: {
       type: String,
-      required: [true, 'Vui lòng cung cấp URL lưu trữ'],
       // Lý tưởng nhất là thêm xác thực cho định dạng URL
+    },
+    originalFilename: {
+      type: String,
+      default: null,
+    },
+    mimeType: {
+      type: String,
+      default: null,
     },
     tags: {
       type: [String],

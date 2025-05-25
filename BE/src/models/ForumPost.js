@@ -36,6 +36,7 @@ const forumPostSchema = new mongoose.Schema(
   },
   {
     timestamps: true, 
+    collection: 'forumPosts'
   }
 );
 

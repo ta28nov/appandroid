@@ -3,15 +3,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ROUTES } from '../utils/constants';
 import { MainTabParamList } from './types';
 import { useTheme } from '../hooks/useTheme';
-import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
+import { Text } from 'react-native';
 import SettingsNavigator from './SettingsNavigator';
 import ChatNavigator from './ChatNavigator';
+import DocumentNavigator from './DocumentNavigator';
+import TaskNavigator from './TaskNavigator';
+import ForumNavigator from './ForumNavigator';
 
 // Import screens/navigators for Tab items
 import HomeScreen from '../screens/Main/HomeScreen';
-import DocumentScreen from '../screens/Main/DocumentScreen';
-import TaskManagementScreen from '../screens/Main/TaskManagementScreen';
-import ForumScreen from '../screens/Main/ForumScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -41,35 +41,40 @@ const MainNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Icon name="home" color={color} size={size} />
+            <Text style={{ fontSize: size, color: color }}>🏠</Text>
           ),
         }}
       />
       <Tab.Screen
         name={ROUTES.MAIN.DOCUMENTS}
-        component={DocumentScreen}
+        component={DocumentNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Icon name="file-document-outline" color={color} size={size} />
+            <Text style={{ fontSize: size, color: color }}>📄</Text>
           ),
+          headerShown: false,
         }}
       />
       <Tab.Screen
         name={ROUTES.MAIN.TASKS}
-        component={TaskManagementScreen}
+        component={TaskNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Icon name="checkbox-marked-outline" color={color} size={size} />
+            <Text style={{ fontSize: size, color: color }}>✅</Text>
           ),
+          headerShown: false,
+          title: 'Công việc',
         }}
       />
       <Tab.Screen
         name={ROUTES.MAIN.FORUM}
-        component={ForumScreen}
+        component={ForumNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Icon name="forum-outline" color={color} size={size} />
+            <Text style={{ fontSize: size, color: color }}>💬</Text>
           ),
+          headerShown: false,
+          title: 'Diễn đàn',
         }}
       />
       <Tab.Screen
@@ -78,7 +83,7 @@ const MainNavigator = () => {
         options={{
           title: 'Chat',
           tabBarIcon: ({ color, size }) => (
-            <Icon name="message-outline" color={color} size={size} />
+            <Text style={{ fontSize: size, color: color }}>💬</Text>
           ),
           headerShown: false,
         }}
@@ -90,7 +95,7 @@ const MainNavigator = () => {
           title: 'Cài đặt',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Icon name="cog-outline" color={color} size={size} />
+            <Text style={{ fontSize: size, color: color }}>⚙️</Text>
           ),
         }}
       />

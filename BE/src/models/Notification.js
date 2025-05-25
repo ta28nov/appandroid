@@ -4,7 +4,7 @@ const relatedEntitySchema = new mongoose.Schema({
   entityType: {
     type: String,
     required: true,
-    enum: ['task', 'project', 'post', 'comment', 'document', 'user', 'message'],
+    enum: ['task', 'project', 'post', 'comment', 'document', 'user', 'message', 'chat'],
   },
   entityId: {
     type: mongoose.Schema.Types.ObjectId,

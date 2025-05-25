@@ -34,16 +34,24 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 // Interface định nghĩa cấu trúc dữ liệu tài liệu
 // Mô tả chi tiết các thuộc tính cần thiết của một tài liệu
 interface Document {
-  id: string;           // ID duy nhất của tài liệu
+  _id: string;           // ID duy nhất của tài liệu
   title: string;        // Tiêu đề tài liệu
   description: string;  // Mô tả chi tiết về tài liệu
   type: string;         // Loại tài liệu (PDF, DOCX, v.v.)
   size: string;         // Kích thước file (hiển thị dạng chuỗi: "1.2 MB")
-  createdBy: string;    // Người tạo tài liệu
+  createdBy: any;    // Người tạo tài liệu
   createdAt: string;    // Thời gian tạo (định dạng ISO)
   updatedAt: string;    // Thời gian cập nhật gần nhất (định dạng ISO)
   shared: boolean;      // Trạng thái chia sẻ (true/false)
   tags: string[];       // Mảng các thẻ tag gắn với tài liệu
+  isFavorite?: boolean; // Thêm trường isFavorite từ API
+  // Các trường có thể có từ API response
+  projectId?: string | null;
+  originalFilename?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number;
+  storageUrl?: string;
+  sharedWith?: any[];
 }
 
 // Định nghĩa các danh mục tài liệu để hiển thị trong thanh lọc
@@ -102,8 +110,11 @@ const DocumentScreen: React.FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.get('/documents');
-      // Đảm bảo luôn là array, tránh lỗi spread non-iterable
-      const docs = Array.isArray(res.data) ? res.data : [];
+      console.log('API response for /documents:', JSON.stringify(res.data, null, 2)); // Log response
+      // Giả sử API trả về một object có key là 'documents' chứa mảng tài liệu
+      // Hoặc nếu API trả về trực tiếp mảng, thì res.data sẽ là mảng đó.
+      const docsData = res.data.documents || res.data; // Thử lấy từ res.data.documents trước, sau đó là res.data
+      const docs = Array.isArray(docsData) ? docsData : [];
       setDocuments(docs);
       setFilteredDocuments(docs);
     } catch (error) {
@@ -135,7 +146,7 @@ const DocumentScreen: React.FC = () => {
       filtered = filtered.filter(doc => doc.shared);
     } else if (selectedCategory === 'favorites') {
       // Chỉ hiển thị tài liệu có ID nằm trong danh sách yêu thích
-      filtered = filtered.filter(doc => favorites.includes(doc.id));
+      filtered = filtered.filter(doc => favorites.includes(doc._id) || doc.isFavorite);
     } else if (selectedCategory === 'recent') {
       // Sắp xếp theo thời gian cập nhật gần nhất và chỉ lấy 5 tài liệu đầu tiên
       filtered = [...filtered].sort((a, b) => {
@@ -168,14 +179,29 @@ const DocumentScreen: React.FC = () => {
   // Chuyển đến trang chi tiết khi người dùng nhấn vào một tài liệu
   const handleDocumentPress = (document: Document) => {
     // Điều hướng tới màn hình chi tiết và truyền ID tài liệu như tham số
-    navigation.navigate(ROUTES.MAIN.DOCUMENT_DETAIL, { documentId: document.id });
+    navigation.navigate(ROUTES.MAIN.DOCUMENT_DETAIL, { documentId: document._id });
   };
   
+  // Xử lý khi người dùng nhấn giữ vào một tài liệu (hiện tại chỉ log ra console)
+  const handleDocumentLongPress = (document: Document) => {
+    console.log('Long pressed on document:', document.title);
+    // TODO: Implement context menu or other actions for long press
+    // Ví dụ: Hiển thị một menu với các tùy chọn: Xem chi tiết, Đổi tên, Di chuyển,... 
+  };
+
   // Thêm/xóa tài liệu khỏi danh sách yêu thích (gọi API BE)
   const toggleFavorite = async (documentId: string) => {
     try {
       await apiToggleFavoriteDocument(documentId);
-      fetchDocuments();
+      // Cập nhật lại danh sách yêu thích local hoặc fetch lại documents
+      setFavorites(prevFavorites => 
+        prevFavorites.includes(documentId)
+          ? prevFavorites.filter(id => id !== documentId)
+          : [...prevFavorites, documentId]
+      );
+      // Đồng thời cập nhật trạng thái isFavorite trong document list để UI phản ánh ngay
+      setDocuments(docs => docs.map(doc => doc._id === documentId ? { ...doc, isFavorite: !doc.isFavorite } : doc));
+      // fetchDocuments(); // Fetch lại nếu cần dữ liệu đầy đủ từ server
       setSnackbar({ visible: true, message: 'Cập nhật trạng thái yêu thích thành công!', type: 'success' });
     } catch (error) {
       setSnackbar({ visible: true, message: 'Không thể cập nhật trạng thái yêu thích.', type: 'error' });
@@ -184,11 +210,11 @@ const DocumentScreen: React.FC = () => {
   
   // Xử lý chia sẻ tài liệu (gọi API BE)
   const handleShareDocument = async (document: Document) => {
-    const shareData = { email: 'test@example.com' };
+    const shareData = { email: 'test@example.com' }; // Email này nên được lấy từ input của người dùng
     try {
-      await apiShareDocument(document.id, shareData);
+      await apiShareDocument(document._id, shareData);
       setSnackbar({ visible: true, message: 'Tài liệu đã được chia sẻ!', type: 'success' });
-      fetchDocuments();
+      fetchDocuments(); // Tải lại danh sách để cập nhật trạng thái chia sẻ
     } catch (error) {
       setSnackbar({ visible: true, message: 'Không thể chia sẻ tài liệu.', type: 'error' });
     }
@@ -206,8 +232,8 @@ const DocumentScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await apiDeleteDocument(document.id);
-              fetchDocuments();
+              await apiDeleteDocument(document._id);
+              fetchDocuments(); // Tải lại danh sách sau khi xóa
               setSnackbar({ visible: true, message: 'Đã xóa tài liệu!', type: 'success' });
             } catch (error) {
               setSnackbar({ visible: true, message: 'Không thể xóa tài liệu.', type: 'error' });
@@ -239,8 +265,8 @@ const DocumentScreen: React.FC = () => {
   // Submit tạo mới
   const handleCreateSubmit = async () => {
     setFormError('');
-    if (!form.title.trim() || !form.type || !form.file) {
-      setFormError('Vui lòng nhập đầy đủ tiêu đề, loại tài liệu và chọn file.');
+    if (!form.title.trim() || !form.type) { 
+      setFormError('Vui lòng nhập đầy đủ tiêu đề và loại tài liệu.'); 
       return;
     }
     setCreateLoading(true);
@@ -250,18 +276,46 @@ const DocumentScreen: React.FC = () => {
       formData.append('description', form.description);
       formData.append('type', form.type);
       formData.append('tags', form.tags);
-      if (!form.file) return;
-      formData.append('file', {
-        uri: form.file.uri,
-        name: form.file.name,
-        type: form.file.mimeType || 'application/octet-stream',
-      } as any);
+      // Chỉ thêm file nếu người dùng đã chọn
+      if (form.file) {
+        formData.append('file', {
+          uri: form.file.uri,
+          name: form.file.name,
+          type: form.file.mimeType || 'application/octet-stream',
+        } as any);
+      }
       await apiUploadDocument(formData);
       setSnackbar({ visible: true, message: 'Tạo tài liệu thành công!', type: 'success' });
       closeCreateModal();
       fetchDocuments();
-    } catch (error) {
-      setFormError('Tạo tài liệu thất bại.');
+    } catch (error: any) { // Thêm kiểu 'any' cho error để truy cập các thuộc tính của nó
+      console.error("Lỗi chi tiết khi tạo tài liệu:", error); // Log toàn bộ đối tượng lỗi
+      let errorMessage = 'Tạo tài liệu thất bại. Vui lòng thử lại.';
+      if (error.response) {
+        // Server đã phản hồi với một mã trạng thái lỗi (ví dụ: 4xx, 5xx)
+        console.error("Dữ liệu lỗi từ server:", error.response.data);
+        console.error("Trạng thái lỗi từ server:", error.response.status);
+        const errorData = error.response.data;
+        // Ưu tiên lấy message từ errorData.error.message nếu có
+        if (errorData && typeof errorData.error === 'object' && errorData.error !== null && typeof errorData.error.message === 'string') {
+          errorMessage = errorData.error.message;
+        } else if (errorData && typeof errorData.message === 'string') { // Sau đó đến errorData.message
+          errorMessage = errorData.message;
+        } else if (typeof errorData === 'string') { // Nếu errorData là một chuỗi
+            errorMessage = errorData;
+        } else { // Mặc định nếu không trích xuất được message cụ thể
+          errorMessage = `Lỗi server: ${error.response.status}`;
+        }
+      } else if (error.request) {
+        // Yêu cầu đã được gửi đi nhưng không nhận được phản hồi
+        console.error("Không nhận được phản hồi từ server:", error.request);
+        errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      } else {
+        // Một lỗi khác đã xảy ra trong quá trình thiết lập yêu cầu
+        console.error("Lỗi khi thiết lập yêu cầu:", error.message);
+        errorMessage = `Lỗi không xác định: ${error.message}`;
+      }
+      setFormError(errorMessage);
     } finally {
       setCreateLoading(false);
     }
@@ -361,12 +415,12 @@ const DocumentScreen: React.FC = () => {
           {/* Nút yêu thích */}
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => toggleFavorite(item.id)}
+            onPress={() => toggleFavorite(item._id)}
           >
             <Icon
-              name={favorites.includes(item.id) ? 'star' : 'star-outline'} // Biểu tượng thay đổi theo trạng thái
+              name={favorites.includes(item._id) || item.isFavorite ? 'star' : 'star-outline'} // Biểu tượng thay đổi theo trạng thái
               size={20}
-              color={favorites.includes(item.id) ? '#FFB600' : colors.text.secondary} // Màu vàng khi đã yêu thích
+              color={favorites.includes(item._id) || item.isFavorite ? '#FFB600' : colors.text.secondary} // Màu vàng khi đã yêu thích
             />
           </TouchableOpacity>
           
@@ -413,6 +467,7 @@ const DocumentScreen: React.FC = () => {
           },
         ]}
         onPress={() => handleDocumentPress(item)} // Xử lý khi người dùng nhấn vào item
+        onLongPress={() => handleDocumentLongPress(item)} // Xử lý khi người dùng nhấn giữ item
       >
         {/* Phần header hiển thị biểu tượng và nút yêu thích */}
         <View style={styles.gridItemHeader}>
@@ -422,39 +477,46 @@ const DocumentScreen: React.FC = () => {
           {/* Nút yêu thích - toggle trạng thái yêu thích khi nhấn */}
           <TouchableOpacity
             style={styles.gridFavoriteButton}
-            onPress={() => toggleFavorite(item.id)}
+            onPress={() => toggleFavorite(item._id)}
           >
             <Icon
-              name={favorites.includes(item.id) ? 'star' : 'star-outline'} // Biểu tượng sao đặc hoặc viền tùy trạng thái
+              name={favorites.includes(item._id) || item.isFavorite ? 'star' : 'star-outline'} // Biểu tượng sao đặc hoặc viền tùy trạng thái
               size={18}
-              color={favorites.includes(item.id) ? '#FFB600' : colors.text.secondary} // Màu vàng khi đã yêu thích
+              color={favorites.includes(item._id) || item.isFavorite ? '#FFB600' : colors.text.secondary} // Màu vàng khi đã yêu thích
             />
           </TouchableOpacity>
         </View>
-        
-        {/* Tiêu đề tài liệu - giới hạn 2 dòng để giao diện lưới gọn gàng */}
-        <Text
-          style={[styles.gridItemTitle, { color: theme.colors.text }]}
-          numberOfLines={2} // Giới hạn 2 dòng, cho phép nhiều hơn chế độ danh sách
-        >
-          {item.title}
-        </Text>
-        
+
+        {/* Phần nội dung hiển thị tiêu đề tài liệu */}
+        <View style={styles.gridItemContent}>
+          {/* Tiêu đề tài liệu - giới hạn 2 dòng và có dấu ... nếu quá dài */}
+          <Text style={[styles.gridItemTitle, { color: colors.text.primary }]} numberOfLines={2}>
+            {item.title}
+          </Text>
+        </View>
+
         {/* Footer hiển thị kích thước và biểu tượng chia sẻ nếu có */}
         <View style={styles.gridItemFooter}>
-          {/* Kích thước tài liệu (KB, MB) */}
           <Text style={[styles.gridItemSize, { color: colors.text.secondary }]}>
             {item.size}
           </Text>
-          
-          {/* Biểu tượng chia sẻ chỉ hiển thị nếu tài liệu đã được chia sẻ */}
-          {item.shared && (
-            <Icon
-              name="account-multiple"
-              size={14}
-              color={colors.text.secondary}
-            />
-          )}
+          <View style={styles.gridItemActions}> 
+            {item.shared && (
+              <Icon name="account-multiple" size={16} color={colors.text.secondary} style={styles.gridActionIcon} />
+            )}
+            <TouchableOpacity
+              style={styles.gridActionButton}
+              onPress={() => handleShareDocument(item)}
+            >
+              <Icon name="share-variant" size={18} color={colors.text.secondary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.gridActionButton}
+              onPress={() => handleDeleteDocument(item)}
+            >
+              <Icon name="delete-outline" size={18} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -639,7 +701,7 @@ const DocumentScreen: React.FC = () => {
         <FlatList
           data={filteredDocuments} // Documents array after applying search and category filters
           renderItem={viewMode === 'list' ? renderListItem : renderGridItem} // Conditional rendering based on selected view mode
-          keyExtractor={item => item.id} // Unique key for optimized list rendering
+          keyExtractor={item => item._id} // Unique key for optimized list rendering
           contentContainerStyle={[
             styles.listContent,
             viewMode === 'grid' && styles.gridContent, // Apply grid-specific styling when in grid mode
@@ -665,6 +727,9 @@ const DocumentScreen: React.FC = () => {
         <Portal>
           <Modal visible={createModalVisible} onDismiss={closeCreateModal} contentContainerStyle={styles.modalContainer}>
             <Text style={styles.modalTitle}>Tạo tài liệu mới</Text>
+            <TouchableOpacity style={styles.closeModalButton} onPress={closeCreateModal}>
+              <Icon name="close" size={24} color={colors.text.secondary} />
+            </TouchableOpacity>
             <TextInput
               label="Tiêu đề *"
               value={form.title}
@@ -701,7 +766,7 @@ const DocumentScreen: React.FC = () => {
               mode="outlined"
             />
             <Button mode="outlined" onPress={handlePickFile} style={styles.input} icon="file-upload">
-              {form.file ? form.file.name : 'Chọn file *'}
+              {form.file ? form.file.name : 'Chọn file (tùy chọn)'}
             </Button>
             {formError ? <HelperText type="error" visible>{formError}</HelperText> : null}
             <Button mode="contained" onPress={handleCreateSubmit} loading={createLoading} disabled={createLoading} style={{ marginTop: 12 }}>
@@ -808,9 +873,11 @@ const styles = StyleSheet.create({
   documentMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+
   },
   documentMetaText: {
     fontSize: FONT_SIZE.caption,
+
   },
   sharedIndicator: {
     flexDirection: 'row',
@@ -848,9 +915,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: SPACING.sm, // Thêm khoảng cách với title
   },
   gridItemSize: {
     fontSize: FONT_SIZE.caption,
+    flexShrink: 1, // Cho phép text thu nhỏ nếu actions chiếm nhiều không gian
+  },
+  gridItemContent: { // Style mới cho phần content của grid item
+    flex: 1, // Để title có thể chiếm không gian còn lại trước footer
+  },
+  gridItemActions: { // Style mới cho nhóm các nút action trong grid footer
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gridActionButton: { // Style mới cho các nút action trong grid
+    padding: SPACING.xs,
+    marginLeft: SPACING.sm, // Khoảng cách giữa các nút action
+  },
+  gridActionIcon: { // Style cho icon (ví dụ: icon shared) trong grid actions
+    marginRight: SPACING.sm, // Khoảng cách với nút action đầu tiên
   },
   emptyContainer: {
     flex: 1,
@@ -886,6 +969,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+  closeModalButton: { // Style cho nút đóng modal
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 8, // Tăng vùng chạm cho dễ nhấn
+    zIndex: 1, // Đảm bảo nút luôn ở trên cùng
+  },
   input: {
     marginBottom: 12,
   },
@@ -903,7 +993,7 @@ function documentTypeLabel(type: string) {
     case DOCUMENT_TYPES.PPT: return 'PowerPoint';
     case DOCUMENT_TYPES.IMAGE: return 'Ảnh';
     case DOCUMENT_TYPES.TEXT: return 'Văn bản';
-    default: return type;
+    default: return type.toUpperCase(); // Hiển thị type nếu không map được, ví dụ "FIG"
   }
 }
 
@@ -924,6 +1014,7 @@ type MaterialIconName =
   | 'account-multiple'
   | 'format-list-bulleted'
   | 'grid'
-  | 'plus';
+  | 'plus'
+  | 'close';
 
 export default DocumentScreen;

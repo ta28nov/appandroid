@@ -16,6 +16,7 @@ const userLikesPostSchema = new mongoose.Schema(
   },
   {
     timestamps: { createdAt: true, updatedAt: false }, // Chỉ theo dõi thời gian tạo
+    collection: 'userLikesPost'
   }
 );
 

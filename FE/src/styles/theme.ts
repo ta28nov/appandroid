@@ -3,38 +3,38 @@ import { MD3LightTheme as DefaultTheme, MD3DarkTheme as DarkTheme } from 'react-
 export const COLORS = {
   // Light theme colors
   light: {
-    primary: '#007AFF',
-    secondary: '#FF9500',
-    success: '#34C759',
-    error: '#FF3B30',
-    warning: '#FF9500',
-    info: '#007AFF',
-    background: '#F5F5F5',
-    surface: '#FFFFFF',
+    primary: '#00695C', // Deep Teal
+    secondary: '#FFA000', // Amber
+    success: '#28A745', // Green
+    error: '#DC3545',   // Red
+    warning: '#FFC107', // Yellow
+    info: '#17A2B8',    // Cyan/Info Blue
+    background: '#F8F9FA', // Off-white, very light gray
+    surface: '#FFFFFF',    // White
     text: {
-      primary: '#333333',
-      secondary: '#8E8E93',
+      primary: '#212529',   // Near Black
+      secondary: '#6C757D', // Medium Gray
     },
-    border: '#E5E5EA',
-    disabled: '#C7C7CC',
+    border: '#DEE2E6',     // Light Gray Border
+    disabled: '#ADB5BD',   // Gray for disabled elements
     backdrop: 'rgba(0, 0, 0, 0.5)',
   },
   // Dark theme colors
   dark: {
-    primary: '#0A84FF',
-    secondary: '#FF9F0A',
-    success: '#30D158',
-    error: '#FF453A',
-    warning: '#FF9F0A',
-    info: '#0A84FF',
-    background: '#1C1C1E',
-    surface: '#2C2C2E',
+    primary: '#4DB6AC', // Lighter Teal for dark mode
+    secondary: '#FFCA28', // Lighter Amber for dark mode
+    success: '#66BB6A', // Lighter Green for dark mode
+    error: '#EF5350',   // Lighter Red for dark mode
+    warning: '#FFEE58', // Lighter Yellow for dark mode
+    info: '#4DD0E1',    // Lighter Cyan/Info Blue for dark mode
+    background: '#121212',    // Very Dark Gray, standard for dark themes
+    surface: '#1E1E1E',     // Dark Gray, slightly lighter than background
     text: {
-      primary: '#FFFFFF',
-      secondary: '#AEAEB2',
+      primary: '#E0E0E0',   // Light Gray, almost white
+      secondary: '#B0B0B0', // Medium-Light Gray
     },
-    border: '#38383A',
-    disabled: '#48484A',
+    border: '#424242',     // Medium Dark Gray Border
+    disabled: '#757575',   // Dark Gray for disabled elements
     backdrop: 'rgba(0, 0, 0, 0.8)',
   },
 };

@@ -102,8 +102,8 @@ const LoginScreen: React.FC = () => {
         style={styles.container}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to continue to your workspace</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Welcome Back</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.text }]}>Sign in to continue to your workspace</Text>
         </View>
         
         <View style={styles.form}>
@@ -150,9 +150,9 @@ const LoginScreen: React.FC = () => {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+              <ActivityIndicator size="small" color={'#FFFFFF'} />
             ) : (
-              <Text style={[styles.buttonText, { color: theme.colors.onPrimary }]}>Sign In</Text>
+              <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Sign In</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -184,12 +184,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONT_SIZE.h1,
     fontWeight: FONT_WEIGHT.bold,
-    color: '#424242',
     marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONT_SIZE.body,
-    color: '#424242',
     textAlign: 'center',
   },
   form: {
@@ -207,7 +205,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 50,
-    color: '#424242',
     fontSize: FONT_SIZE.body,
   },
   inputIcon: {
@@ -231,7 +228,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   forgotPasswordText: {
-    color: '#2979FF',
     fontSize: FONT_SIZE.body,
   },
   button: {
@@ -246,7 +242,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#A0C4FF',
   },
   buttonText: {
-    color: '#FFFFFF',
     fontSize: FONT_SIZE.medium,
     fontWeight: FONT_WEIGHT.semiBold,
   },
@@ -257,11 +252,9 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   footerText: {
-    color: '#424242',
     fontSize: FONT_SIZE.body,
   },
   footerLink: {
-    color: '#2979FF',
     fontSize: FONT_SIZE.body,
     fontWeight: FONT_WEIGHT.semiBold,
     marginLeft: SPACING.xs,

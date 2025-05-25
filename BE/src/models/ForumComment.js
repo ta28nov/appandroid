@@ -28,6 +28,7 @@ const forumCommentSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    collection: 'forumComments'
   }
 );
 

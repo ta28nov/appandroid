@@ -84,49 +84,58 @@ src/
 - **React Native Vector Icons**: Thư viện biểu tượng
 - **Victory Native**: Thư viện vẽ biểu đồ
 
-## Kế hoạch phát triển tiếp theo
 
-1. Kết nối với backend API thực tế
-2. Thêm chức năng đồng bộ offline
-3. Tối ưu hiệu suất
-4. Thêm tính năng thông báo đẩy (push notifications)
-5. Cải thiện UX/UI dựa trên phản hồi người dùng
-6. **Quản lý Dự án**: Gom nhóm công việc và tài liệu theo dự án.
-7. **Lịch & Lên lịch**: Tích hợp chế độ xem lịch cho công việc và sự kiện.
-8. **Quản lý Nhóm**: Cho phép tạo nhóm, thêm thành viên và phân quyền.
-9. **Cải thiện Tìm kiếm**: Triển khai tìm kiếm nâng cao trên toàn bộ ứng dụng.
-10. **Tích hợp bên thứ ba**: Kết nối với các dịch vụ khác (ví dụ: Lịch Google, Drive).
-11. **Tích hợp AI**: Sử dụng AI để phân tích nội dung, đề xuất giải pháp và tối ưu hóa quy trình làm việc.
-12. **Quản lý Phiên bản Tài liệu**: Thêm chức năng theo dõi và quản lý các phiên bản của tài liệu.
-13. **Quản lý Hồ sơ Nâng cao**: Cho phép người dùng cập nhật chi tiết hồ sơ cá nhân và quản lý cài đặt quyền riêng tư.
 
-## Hướng dẫn phát triển
 
-### Cài đặt dự án
+. Thư mục FE/src/screens/Auth
+ForgotPasswordScreen.tsx
+Vị trí: Hàm handlePasswordReset (hoặc hàm xử lý sự kiện nhấn nút "Gửi link đặt lại").
+Cần sửa: Hiện tại, màn hình này có thể chưa thực sự gọi API backend để yêu cầu gửi email đặt lại mật khẩu. Cần đảm bảo rằng có một API (ví dụ: POST /auth/forgot-password) được gọi với email của người dùng.
+Kiểm tra lại: Trong lần review trước, chúng ta ghi nhận "hiện tại không kết nối với API backend". Cần bổ sung lệnh gọi API này.
+2. Thư mục FE/src/screens/Main
+Settings/IntegrationSettingsScreen.tsx
+Vị trí: Toàn bộ file, đặc biệt là các hàm xử lý handleConnect, handleDisconnect.
+Cần sửa: Màn hình này hiện chỉ giả lập trạng thái kết nối. Cần triển khai API calls thực sự:
+Khi người dùng kết nối một dịch vụ (ví dụ: Google Calendar, Slack): Gọi API backend (ví dụ: POST /integrations/{serviceName}/connect) để khởi tạo quá trình OAuth hoặc lưu trữ token.
+Khi người dùng ngắt kết nối: Gọi API backend (ví dụ: POST /integrations/{serviceName}/disconnect) để xóa thông tin kết nối.
+Settings/PendingSyncScreen.tsx
+Vị trí:
+Hàm useEffect để tải danh sách thay đổi đang chờ.
+Hàm handleSync để thực hiện đồng bộ.
+Hàm handleResolveConflict để xử lý xung đột.
+Cần sửa: Màn hình này đang dùng dữ liệu giả lập. Cần tích hợp API cho các chức năng sau:
+Lấy danh sách thay đổi chờ: Thay vì setPendingChanges với dữ liệu giả, cần đọc từ một hàng đợi lưu trữ cục bộ (nếu thay đổi được lưu offline trước) hoặc gọi API để lấy danh sách thay đổi cần đồng bộ từ server (ít phổ biến hơn cho kịch bản này).
+Thực hiện đồng bộ (handleSync):
+Lặp qua từng pendingChange.
+Gọi API backend tương ứng cho từng loại thay đổi (ví dụ: POST /tasks, PUT /documents/{id}, DELETE /comments/{id}).
+Xử lý phản hồi từ API (thành công, thất bại, xung đột).
+Giải quyết xung đột (handleResolveConflict):
+Sau khi người dùng chọn cách giải quyết, gọi API backend để gửi lựa chọn đó và hoàn tất việc giải quyết xung đột.
+Settings/SettingsScreen.tsx
+Vị trí: Hàm handleLogout, cụ thể là logic bên trong hàm logout() của AuthContext được gọi từ đây.
+Cần sửa (Cân nhắc): Hiện tại, logout() trong AuthContext chỉ xử lý ở client (xóa token cục bộ). Cân nhắc việc bổ sung một API call POST /auth/logout ở backend để vô hiệu hóa token phía server hoặc ghi log đăng xuất. Nếu quyết định thêm, hàm logout trong AuthContext.tsx cần được cập nhật.
+Projects/ResourceViewScreen.tsx
+Vị trí: Hàm fetchData (trong useEffect).
+Cần sửa:
+Hỗ trợ activeTab === 'team': Logic hiện tại chỉ lấy dữ liệu theo projectId. Nếu activeTab là 'team', cần gọi một API khác (ví dụ: apiGetTeamResourceAllocation(teamId, timeRange)) hoặc API apiGetProjectById cần được điều chỉnh để có thể truy vấn theo teamId nếu projectId không có.
+Tích hợp timeRange: Tham số timeRange (tuần, tháng, quý, năm) hiện chưa được truyền vào API call. Hàm apiGetProjectById (và API cho team) cần nhận timeRange để backend trả về dữ liệu tương ứng.
+Ví dụ: apiGetProjectById(projectId, timeRange)
+Vị trí: Hàm handleTimeRangeChange.
+Cần sửa: Sau khi setTimeRange(range), cần gọi lại fetchData() để tải dữ liệu mới theo timeRange vừa chọn.
+Search/GlobalSearchResultsScreen.tsx
+Vị trí: Hàm performSearch(query: string).
+Cần sửa:
+Tìm kiếm cho User, Message, Forum: Hiện tại, userResults, messageResults, forumResults đang là mảng rỗng. Cần bổ sung các API call tương ứng:
+apiClient.get('/users', { params: { search: query, ...filters } })
+apiClient.get('/messages', { params: { search: query, ...filters } }) (hoặc API tìm kiếm tin nhắn phù hợp)
+apiClient.get('/forum/posts', { params: { search: query, ...filters } })
+Tích hợp bộ lọc nâng cao: AdvancedSearchBar có các filterOptions (Loại, Ngày). Các giá trị lọc này cần được lấy ra và truyền vào tất cả các API call trong performSearch. Ví dụ: apiClient.get('/tasks', { params: { search: query, type: selectedTypeFilter, date: selectedDateFilter } }).
+Lưu ý: Các API backend tương ứng (/tasks, /documents, /users, /messages, /forum/posts) cũng cần được cập nhật để hỗ trợ các tham số lọc này.
+3. Thư mục FE/src/screens/Onboarding
+OnboardingStepScreen.tsx (và component cha quản lý luồng onboarding)
+Vị trí: Hàm onFinish được truyền vào OnboardingStepScreen (logic này thường nằm ở component cha điều phối các bước onboarding).
+Cần sửa (Cân nhắc): Sau khi người dùng hoàn thành bước onboarding cuối cùng và hàm onFinish được gọi, có thể cần gọi một API để đánh dấu người dùng đã hoàn thành onboarding, ví dụ: POST /users/me/onboarding-status với body { completed: true }. Điều này giúp ứng dụng không hiển thị lại onboarding cho lần đăng nhập sau.
 
-```bash
-# Clone repository
-git clone [url-repo]
-
-# Di chuyển vào thư mục dự án
-cd androidapp
-
-# Cài đặt dependencies
-npm install
-```
-
-### Chạy ứng dụng
-
-```bash
-# Chạy trên Android
-npm run android
-
-# Chạy trên iOS
-npm run ios
-
-# Chạy trên web
-npm run web
-```
 
 ## Tài khoản thử nghiệm
 
@@ -159,52 +168,3 @@ npm run web
 - **MainNavigator**: Điều hướng giữa các tab chính sau khi đăng nhập (trang chủ, tài liệu, công việc, diễn đàn, chat)
 
 ### Style & Theme
-
-- **Theme**: Hệ thống theme với các màu sắc, font, và kích thước nhất quán
-- **Global Styles**: Các style được tái sử dụng trong toàn ứng dụng
-- **Component Styles**: Style cụ thể cho từng component
-
-1. Các Tính Năng AI Tiềm Năng (Ngoài Chatbot):
-   Tóm tắt Thông minh:
-   Tài liệu: Nút "Tóm tắt bằng AI" trong màn hình chi tiết tài liệu để người dùng nắm nhanh ý chính.
-   Thảo luận: Tóm tắt các chủ đề dài trên Diễn đàn.
-   Đề xuất Thông minh:
-   Công việc: Gợi ý mức độ ưu tiên, người thực hiện phù hợp, hoặc tự động phân rã công việc lớn.
-   Tìm kiếm: Khi tìm kiếm, AI gợi ý các tài liệu/công việc/thảo luận liên quan mà người dùng có thể đã bỏ qua.
-   Liên kết: Tự động gợi ý liên kết giữa các công việc và tài liệu liên quan.
-   Phân tích & Cảnh báo:
-   Phân tích tiến độ dự án (nếu có) và cảnh báo sớm về nguy cơ chậm deadline.
-   Phát hiện các công việc bị trùng lặp hoặc có nội dung tương tự.
-
-🎨🌟 Bộ UI/UX Hoàn chỉnh cho Digital Workplace (Modern & Bright)
-
-Thành phần Màu gốc Hover Active/Focus
-Header background #FAFAFA không đổi bóng mờ nhẹ (shadow)
-Header text #2979FF #1C5DCC (tối nhẹ lại) gạch dưới (underline)
-Background tổng thể #FAFAFA + #E0E0E0 làm mờ nhẹ khi hover section
-Button chính (Primary) nền #2979FF, text #FFFFFF nền #1C5DCC, text #FFFFFF nền #004AAD
-Button phụ (Secondary) nền #A0C4FF, text #2979FF nền #7EB8FF, text #2979FF nền #5AA4FF
-CTA nổi bật nền #FFC300, text #424242 nền #FFB000, text #424242 nền #FF9F00
-Text chính #424242 #2979FF khi hover link
-Card viền/hover viền #2979FF viền đậm hơn + đổ bóng nhẹ shadow nổi bật hơn
-Icon chính #2979FF đổi #1C5DCC khi hover
-Icon phụ #A0C4FF #7EB8FF khi hover
-✍️ Kiểu chữ đề xuất:
-
-Loại text Font Family Font Weight Size
-Tiêu đề lớn (H1) Poppins, sans-serif 700 (bold) 28–32px
-Tiêu đề nhỏ (H2–H3) Poppins, sans-serif 600 (semi-bold) 20–24px
-Nội dung chính Inter, sans-serif 400–500 14–16px
-CTA/Buttons Inter hoặc Poppins 600 (semi-bold) 16px
-Subtext/phụ đề Inter 400 12–14px
-✅ Poppins → tròn nhẹ, hiện đại, thoáng đẹp.
-✅ Inter → chữ body mảnh gọn, đọc rất sướng mắt trong app/business.
-
-✨ Các hiệu ứng giao diện nên có:
-
-Hiệu ứng Mô tả
-Hover Button nền đậm hơn 10–15%, nhẹ nhàng (transition 0.3s)
-Card Hover shadow nhẹ (0 2px 8px rgba(41,121,255,0.2)), scale 1.02
-Link Hover màu text đổi sang #2979FF, underline mảnh
-Input Focus viền #2979FF, glow nhẹ xung quanh input
-Animation nhỏ fade-in nhẹ (opacity + move up 10px) khi load component

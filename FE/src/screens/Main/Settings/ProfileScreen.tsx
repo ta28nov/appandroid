@@ -14,34 +14,8 @@ import { ThemeContext } from '../../../contexts/ThemeContext'; // Corrected path
 import Input from '../../../components/common/Input'; // Corrected path
 import Button from '../../../components/common/Button'; // Corrected path
 import Avatar from '../../../components/common/Avatar'; // Corrected path
+import { apiGetMe, apiUpdateProfile } from '../../../services/api'; // Added API imports
 // Import ImagePicker or similar for avatar upload later
-
-// Mock function to simulate fetching user profile
-const fetchUserProfile = async (userId: string): Promise<UserProfile> => {
-  console.log(`Fetching profile for user: ${userId}`);
-  // Replace with actual API call later
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-  return {
-    id: userId,
-    name: 'Người dùng Mẫu',
-    email: 'user@example.com',
-    avatarUrl: 'https://via.placeholder.com/150',
-    bio: 'Đây là tiểu sử mẫu của người dùng.',
-    privacySettings: {
-      showEmail: false,
-      showActivityStatus: true,
-    },
-  };
-};
-
-// Mock function to simulate updating user profile
-const updateUserProfile = async (profileData: UserProfile): Promise<boolean> => {
-  console.log('Updating profile:', profileData);
-  // Replace with actual API call later
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-  // Simulate success/failure
-  return true;
-};
 
 const ProfileScreen: React.FC = () => {
   const authContext = useContext(AuthContext);
@@ -68,17 +42,29 @@ const ProfileScreen: React.FC = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetchUserProfile(user.id)
-        .then(data => {
-          setProfile(data);
-          // Initialize form state
-          setName(data.name);
-          setBio(data.bio || '');
-          setShowEmail(data.privacySettings?.showEmail || false);
-          setShowActivityStatus(data.privacySettings?.showActivityStatus || true);
+      setIsLoading(true); // Set loading true before API call
+      console.log('[ProfileScreen] Current user ID from AuthContext:', user.id); // Log user ID
+      apiGetMe()
+        .then(response => {
+          console.log('[ProfileScreen] apiGetMe response:', JSON.stringify(response, null, 2)); // Log full response
+          // Assuming response.data contains the user profile object
+          // Adjust access to data based on your actual API response structure e.g. response.data.data
+          const data = response.data?.data || response.data;
+          console.log('[ProfileScreen] Extracted data for profile:', JSON.stringify(data, null, 2)); // Log extracted data
+          if (data && typeof data === 'object' && data._id) { // Thêm kiểm tra data._id để chắc chắn là object user
+            setProfile(data as UserProfile);
+            // Initialize form state
+            setName(data.name || ''); // Add fallback for potentially missing fields
+            setBio(data.bio || '');
+            // Ensure privacySettings exists and has properties before accessing them
+            setShowEmail(data.privacySettings?.showEmail || false);
+            setShowActivityStatus(data.privacySettings?.showActivityStatus || true);
+          } else {
+            throw new Error('User profile data not found in response');
+          }
         })
         .catch(error => {
-          console.error('Failed to fetch profile:', error);
+          console.error('[ProfileScreen] Failed to fetch profile:', JSON.stringify(error, null, 2)); // Log error object
           Alert.alert('Lỗi', 'Không thể tải hồ sơ người dùng.');
         })
         .finally(() => {
@@ -86,6 +72,7 @@ const ProfileScreen: React.FC = () => {
         });
     } else {
       setIsLoading(false);
+      console.warn('[ProfileScreen] User ID not found in AuthContext.'); // Log warning if user ID is missing
       // Handle case where user ID is not available (should not happen in protected route)
       Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng.');
     }
@@ -97,13 +84,14 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!profile) return;
+    if (!profile || !authContext) return;
     setIsSaving(true);
     const updatedProfile: UserProfile = {
       ...profile,
       name,
       bio,
       // avatarUrl should be updated after implementing image picker
+      // For now, it will send the existing profile.avatarUrl
       privacySettings: {
         showEmail,
         showActivityStatus,
@@ -111,16 +99,24 @@ const ProfileScreen: React.FC = () => {
     };
 
     try {
-      const success = await updateUserProfile(updatedProfile);
-      if (success) {
-        setProfile(updatedProfile); // Update local state with saved data
+      const response = await apiUpdateProfile(updatedProfile);
+      // Assuming response.data contains the updated user profile object
+      // Adjust access to data based on your actual API response structure e.g. response.data.data
+      const updatedUserData = response.data?.data || response.data;
+
+      if (updatedUserData) {
+        // Update AuthContext with the new user data
+        // Ensure the structure of updatedUserData is compatible with what authContext.setUser expects
+        authContext.setUser(updatedUserData as any); // Use 'as any' if types are not perfectly aligned, or map fields
+        setProfile(updatedUserData as UserProfile); // Update local profile state
         Alert.alert('Thành công', 'Hồ sơ đã được cập nhật.');
       } else {
-        Alert.alert('Lỗi', 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');
+        Alert.alert('Lỗi', 'Không thể cập nhật hồ sơ. Dữ liệu trả về không hợp lệ.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update profile:', error);
-      Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật hồ sơ.');
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể cập nhật hồ sơ.';
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setIsSaving(false);
     }

@@ -8,18 +8,22 @@ export const ROUTES = {
     LOGIN: 'Login',
     REGISTER: 'Register',
     FORGOT_PASSWORD: 'ForgotPassword',
-  },
+  } as const,
   // Main App Routes
   MAIN: {
     HOME: 'Home',
     DOCUMENTS: 'Documents',
     DOCUMENT_DETAIL: 'DocumentDetail',
     TASKS: 'Tasks',
+    TASKS_LIST: 'TasksList',
+    TASK_DETAIL: 'TaskDetail',
     FORUM: 'Forum',
     FORUM_TOPIC: 'ForumTopic',
     FORUM_POST_DETAIL: 'ForumPostDetail',
+    CREATE_FORUM_POST: 'CreateForumPost',
     CHAT_LIST: 'ChatList',
     CHAT: 'Chat',
+    CREATE_CHAT_USER_SELECTION: 'CreateChatUserSelection',
     NOTIFICATIONS: 'Notifications',
     SETTINGS_NAVIGATOR: 'SettingsNavigator',
     SETTINGS: 'Settings',
@@ -27,14 +31,17 @@ export const ROUTES = {
     INTEGRATIONS: 'Integrations',
     PENDING_SYNC: 'PendingSync',
     GLOBAL_SEARCH_RESULTS: 'GlobalSearchResults',
-  },
+  } as const,
   // Navigation Groups
   STACKS: {
     AUTH_STACK: 'AuthStack',
     MAIN_TABS: 'MainTabs',
     SETTINGS_STACK: 'SettingsStack',
-  },
-};
+    DOCUMENT_STACK: 'DocumentStack',
+    TASK_STACK: 'TaskStack',
+    FORUM_STACK: 'ForumStack',
+  } as const,
+} as const;
 
 // Document Types
 export const DOCUMENT_TYPES = {

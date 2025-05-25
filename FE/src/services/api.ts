@@ -1,9 +1,9 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/apiConfig';
+import { STORAGE_KEYS } from '../utils/constants';
 
 // !! Thay đổi base URL này thành địa chỉ backend của bạn !!
-const AUTH_TOKEN_KEY = '@auth_token';
 
 // Tạo instance Axios
 const apiClient = axios.create({
@@ -18,7 +18,7 @@ const apiClient = axios.create({
 
 export const getToken = async (): Promise<string | null> => {
   try {
-    return await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    return await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   } catch (e) {
     console.error('Failed to get auth token', e);
     return null;
@@ -27,7 +27,7 @@ export const getToken = async (): Promise<string | null> => {
 
 export const setToken = async (token: string): Promise<void> => {
   try {
-    await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+    await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
   } catch (e) {
     console.error('Failed to set auth token', e);
   }
@@ -35,7 +35,7 @@ export const setToken = async (token: string): Promise<void> => {
 
 export const removeToken = async (): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+    await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   } catch (e) {
     console.error('Failed to remove auth token', e);
   }
@@ -130,38 +130,47 @@ export const apiGetUserProfile = (userId: string) => apiClient.get(`/users/${use
 // --- Task API Calls ---
 
 interface Task {
-  id: string;
+  _id: string;
   title: string;
-  description: string;
-  assignedTo: string;
-  priority: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
   completed: boolean;
-  dueDate: string;
-  overdue: boolean;
-  // Thêm các trường khác nếu API trả về
+  dueDate?: string;
+  projectId?: string;
 }
 
 interface GetTasksParams {
   limit?: number;
-  sortBy?: string; // ví dụ: 'dueDate:asc'
-  status?: string; // ví dụ: 'pending', 'overdue'
-  // Thêm các params khác nếu API hỗ trợ
+  sortBy?: 'createdAt' | 'dueDate' | 'priority' | 'title';
+  sortOrder?: 'asc' | 'desc';
+  status?: string;
+  completed?: boolean;
+  priority?: 'low' | 'medium' | 'high';
+  projectId?: string;
+  page?: number;
+}
+
+interface TasksApiResponse {
+  tasks: Task[];
+  page: number;
+  pages: number;
+  total: number;
 }
 
 /**
  * Lấy danh sách tasks.
  * @param params - Các tham số query (filter, pagination, sort)
  */
-export const apiGetTasks = (params?: GetTasksParams) => apiClient.get<Task[]>('/tasks', { params });
+export const apiGetTasks = (params?: GetTasksParams) => apiClient.get<TasksApiResponse>('/tasks', { params });
 
 // Thêm hàm tạo task mới
-export const apiCreateTask = (taskData: Partial<Task>) => apiClient.post('/tasks', taskData);
+export const apiCreateTask = (taskData: Omit<Partial<Task>, '_id'>) => apiClient.post<Task>('/tasks', taskData);
 
 // Thêm hàm lấy chi tiết task
 export const apiGetTaskById = (id: string) => apiClient.get<Task>(`/tasks/${id}`);
 
 // Thêm hàm cập nhật task
-export const apiUpdateTask = (id: string, taskData: Partial<Task>) => apiClient.put(`/tasks/${id}`, taskData);
+export const apiUpdateTask = (id: string, taskData: Omit<Partial<Task>, '_id'>) => apiClient.put<Task>(`/tasks/${id}`, taskData);
 
 // Thêm hàm xóa task
 export const apiDeleteTask = (id: string) => apiClient.delete(`/tasks/${id}`);
@@ -183,43 +192,169 @@ export const apiGetProjectTasks = (id: string, params?: GetTasksParams) => apiCl
 
 // --- Chat API Calls ---
 
-// TODO: Định nghĩa interface Chat, Message chi tiết hơn
-// Export interfaces
-export interface Chat { id: string; [key: string]: any; }
-export interface Message { id: string; [key: string]: any; }
+export interface UserSnippet {
+  _id: string;
+  name: string; 
+  username?: string; // Thêm username vì model User có thể có
+  avatarUrl?: string;
+}
 
-export const apiGetChats = () => apiClient.get<Chat[]>('/chats');
-export const apiCreateOrGetChat = (userId: string) => apiClient.post<Chat>('/chats', { userId });
-export const apiGetChatMessages = (chatId: string, params?: { limit?: number; before?: string }) => apiClient.get<Message[]>(`/chats/${chatId}/messages`, { params });
-export const apiSendChatMessage = (chatId: string, messageData: { text: string }) => apiClient.post<Message>(`/chats/${chatId}/messages`, messageData);
+export interface LastMessageData {
+  messageId: string; 
+  senderId: UserSnippet | string; 
+  text: string;
+  timestamp: string; 
+}
+
+export interface ChatData {
+  _id: string; 
+  participant: (UserSnippet | string)[];
+  lastMessage: LastMessageData | null;
+  createdAt: string; 
+  updatedAt: string; 
+  // unreadCount?: number;
+}
+
+// Add PaginatedChatResponse interface
+export interface PaginatedChatResponse {
+  chats: ChatData[];
+  page: number;
+  pages: number;
+  total: number;
+}
+
+export interface ChatMessageData {
+  _id: string; 
+  chatId: string;
+  senderId: UserSnippet | string; 
+  text: string;
+  timestamp: string; // Representing createdAt from backend model
+  readBy?: (UserSnippet | string)[]; 
+}
+
+// Giữ lại Chat và Message type cũ cho apiCreateChat nếu response của nó đơn giản
+// Nhưng các hàm get nên dùng type chi tiết hơn
+// export interface Chat { id: string; [key: string]: any; } // Thay thế bằng ChatData
+// export interface Message { id: string; [key: string]: any; } // Thay thế bằng ChatMessageData
+
+export const apiGetChats = () => apiClient.get<PaginatedChatResponse>('/chats');
+
+/**
+ * Tạo một cuộc trò chuyện mới.
+ * @param chatData - Dữ liệu để tạo chat, ví dụ: { participants: string[] }
+ * @returns Promise chứa thông tin chat đã tạo.
+ */
+export const apiCreateChat = (chatData: { participants: string[] }) =>
+  apiClient.post<ChatData>('/chats', chatData); // Sử dụng ChatData cho response type
+
+export const apiCreateOrGetChat = (userId: string) => apiClient.post<ChatData>('/chats', { userId }); // Sử dụng ChatData
+export const apiGetChatMessages = (chatId: string, params?: { limit?: number; before?: string }) => apiClient.get<ChatMessageData[]>(`/chats/${chatId}/messages`, { params });
+export const apiSendChatMessage = (chatId: string, messageData: { text: string }) => apiClient.post<ChatMessageData>(`/chats/${chatId}/messages`, messageData);
 
 // --- Forum API Calls ---
 
-// TODO: Định nghĩa interface ForumPost, ForumComment chi tiết hơn
-// Export interfaces
-export interface ForumPost { 
-  id: string; 
-  liked?: boolean; // Thêm trường liked để ForumScreen có thể dùng
-  author?: { // Cho phép author là optional hoặc null
-      id: string;
-      name: string;
-      avatar?: string;
-  };
-  [key: string]: any; // Giữ lại để linh hoạt
+// Interfaces for Forum
+export interface ForumTag {
+  _id: string;
+  name: string;
+  // count?: number; // Có thể có nếu API trả về số lượng bài đăng cho mỗi tag
 }
-export interface ForumComment { id: string; [key: string]: any; }
-export interface ForumTag { id: string; name: string; }
 
-export const apiGetForumPosts = (params?: { tag?: string; sortBy?: string; limit?: number; page?: number }) => apiClient.get<ForumPost[]>('/forum/posts', { params });
-export const apiCreateForumPost = (postData: any) => apiClient.post<ForumPost>('/forum/posts', postData);
-export const apiGetForumPostById = (postId: string) => apiClient.get<ForumPost>(`/forum/posts/${postId}`);
-export const apiUpdateForumPost = (postId: string, postData: any) => apiClient.put<ForumPost>(`/forum/posts/${postId}`, postData);
-export const apiDeleteForumPost = (postId: string) => apiClient.delete(`/forum/posts/${postId}`);
-export const apiToggleForumPostLike = (postId: string) => apiClient.post(`/forum/posts/${postId}/like`);
-export const apiGetForumPostComments = (postId: string) => apiClient.get<ForumComment[]>(`/forum/posts/${postId}/comments`);
-export const apiCreateForumComment = (postId: string, commentData: { content: string }) => apiClient.post<ForumComment>(`/forum/posts/${postId}/comments`, commentData);
-export const apiDeleteForumComment = (commentId: string) => apiClient.delete(`/forum/comments/${commentId}`);
-export const apiGetForumTags = () => apiClient.get<ForumTag[]>('/forum/tags');
+export interface ForumAuthor {
+  _id: string;
+  username: string; // Hoặc name, email tùy thuộc vào dữ liệu user được populate
+  avatarUrl?: string;
+}
+
+export interface ForumPost {
+  _id: string;
+  authorId: ForumAuthor | string; // Sẽ là ForumAuthor nếu được populate, hoặc string nếu chỉ là ID
+  title: string;
+  content: string;
+  tags: string[];
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string; // ISO Date string
+  updatedAt: string; // ISO Date string
+  isLikedByUser?: boolean; // Thêm trường này (tùy chọn)
+}
+
+export interface ForumComment {
+  _id: string;
+  postId: string;
+  authorId: ForumAuthor | string;
+  content: string;
+  likesCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isLikedByUser?: boolean; // Thêm trường này cho comment (tùy chọn)
+}
+
+export interface CreateForumPostPayload {
+  title: string;
+  content: string;
+  tags?: string[];
+}
+
+export interface UpdateForumPostPayload extends Partial<CreateForumPostPayload> {}
+
+export interface CreateForumCommentPayload {
+  content: string;
+}
+
+// API Response Types for Forum
+export interface ForumPostsApiResponse {
+  posts: ForumPost[];
+  page: number;
+  pages: number;
+  total: number;
+}
+
+export interface ForumPostDetailApiResponse extends ForumPost {}
+
+export interface ForumCommentsApiResponse {
+  comments: ForumComment[];
+  // pagination nếu có
+}
+
+export interface ForumTagsApiResponse {
+  tags: ForumTag[];
+}
+
+// API Functions for Forum
+
+// Posts
+export const apiGetForumPosts = (params?: { page?: number; limit?: number; tag?: string; sortBy?: string }) => 
+  apiClient.get<ForumPostsApiResponse>('/forum/posts', { params });
+
+export const apiCreateForumPost = (data: CreateForumPostPayload) => 
+  apiClient.post<ForumPostDetailApiResponse>('/forum/posts', data);
+
+export const apiGetForumPostById = (postId: string) => 
+  apiClient.get<ForumPostDetailApiResponse>(`/forum/posts/${postId}`);
+
+export const apiUpdateForumPost = (postId: string, data: UpdateForumPostPayload) => 
+  apiClient.put<ForumPostDetailApiResponse>(`/forum/posts/${postId}`, data);
+
+export const apiDeleteForumPost = (postId: string) => 
+  apiClient.delete(`/forum/posts/${postId}`);
+
+export const apiLikeUnlikeForumPost = (postId: string) => 
+  apiClient.post<{ likesCount: number, isLikedByUser: boolean }>(`/forum/posts/${postId}/like`); // Cập nhật response type
+
+// Comments
+export const apiGetForumPostComments = (postId: string, params?: { page?: number; limit?: number }) => 
+  apiClient.get<ForumCommentsApiResponse>(`/forum/posts/${postId}/comments`, { params });
+
+export const apiCreateForumComment = (postId: string, data: CreateForumCommentPayload) => 
+  apiClient.post<ForumComment>(`/forum/posts/${postId}/comments`, data); // Giả sử trả về comment vừa tạo
+
+export const apiDeleteForumComment = (commentId: string) => 
+  apiClient.delete(`/forum/comments/${commentId}`);
+
+// Tags
+export const apiGetForumTags = () => 
+  apiClient.get<ForumTagsApiResponse>('/forum/tags');
 
 // --- Document API Calls ---
 
@@ -277,27 +412,47 @@ export const apiToggleFavoriteDocument = (id: string) => apiClient.post(`/docume
 
 // --- Notification API Calls ---
 
-interface Notification {
-  id: string;
+// Interface for a single Notification
+interface Notification { // This interface should align with what each notification object in the array looks like
+  _id: string;
   title: string;
   message: string;
-  type: string;
+  // type: string; // Consider removing if relatedEntity.entityType is the primary source
   read: boolean;
   createdAt: string;
+  relatedEntity?: {
+    entityType: string;
+    entityId: string;
+    entityName?: string; 
+    chatAvatar?: string;
+  };
 }
 
 interface GetNotificationsParams {
   limit?: number;
   read?: boolean;
+  page?: number;
+}
+
+// Interface for the entire response of /notifications endpoint
+interface GetNotificationsResponse {
+  notifications: Notification[];
+  page: number;
+  pages: number;
+  total: number;
+  unreadCount?: number; // As seen in the logs, for total unread badge
 }
 
 /**
- * Lấy danh sách thông báo
+ * Lấy danh sách thông báo.
+ * @param params - Các tham số query (limit, read, page)
+ * @returns Promise chứa response từ API với danh sách thông báo và thông tin pagination.
  */
-export const apiGetNotifications = (params?: GetNotificationsParams) => apiClient.get<Notification[]>('/notifications', { params });
+export const apiGetNotifications = (params?: GetNotificationsParams) => 
+  apiClient.get<GetNotificationsResponse>('/notifications', { params });
 
 /**
- * Đánh dấu các thông báo đã đọc
+ * Đánh dấu các thông báo là đã đọc.
  * @param ids - Mảng ID thông báo
  */
 export const apiMarkNotificationsRead = (ids: string[]) => apiClient.post('/notifications/read', { ids });

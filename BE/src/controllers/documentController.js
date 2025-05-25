@@ -143,53 +143,97 @@ const getDocuments = asyncHandler(async (req, res) => {
 // @route   POST /api/documents
 // @access  Riêng tư
 const uploadDocument = asyncHandler(async (req, res) => {
-    const { title, description, tags, projectId } = req.body;
+    // Lấy 'type' từ req.body, đặt tên là bodyType để rõ ràng
+    const { title, description, tags, projectId, type: bodyType } = req.body;
     const file = req.file; // Đối tượng tệp từ multer
 
-    if (!file) {
+    // --- Khai báo biến cho thông tin file và tài liệu ---
+    let fileUrl = null;
+    let originalFilename = null;
+    let fileMimeType = null; // Mime type của file nếu có
+    let fileSize = null;
+    let documentType = bodyType; // Ưu tiên type từ body
+
+    // --- Kiểm tra các trường bắt buộc cơ bản ---
+    if (!title || title.trim() === '') {
         res.status(400);
-        throw new Error('No file uploaded');
+        throw new Error('Tiêu đề tài liệu là bắt buộc.');
     }
-    if (!title) {
+    // Nếu không có type từ body VÀ không có file (để suy luận type), thì báo lỗi
+    if ((!documentType || documentType.trim() === '') && !file) {
         res.status(400);
-        throw new Error('Document title is required');
+        throw new Error('Loại tài liệu là bắt buộc.');
+    }
+    // Nếu có type từ body nhưng rỗng, cũng báo lỗi (trừ khi có file để suy luận)
+    if (documentType && documentType.trim() === '' && !file) {
+        res.status(400);
+        throw new Error('Loại tài liệu không được để trống.');
     }
 
-    // Tùy chọn: Xác thực projectId nếu được cung cấp
-    if (projectId) {
-        if (!mongoose.Types.ObjectId.isValid(projectId)) {
-             res.status(400); throw new Error('Invalid Project ID');
-        }
-        const project = await Project.findOne({ _id: projectId, memberIds: req.user._id });
-        if (!project) {
-            res.status(403);
-            throw new Error('Not authorized to add documents to this project');
-        }
-    }
+    // --- Xử lý file nếu có ---
+    if (file) {
+        const tempFilePath = file.path;
+        const fileExtension = path.extname(file.originalname);
+        const baseFilename = path.basename(file.originalname, fileExtension);
+        const uniqueFilename = `${baseFilename.replace(/[^a-zA-Z0-9_.-]/g, '_')}-${Date.now()}${fileExtension}`;
+        const destinationPath = path.join(__dirname, '../../uploads', uniqueFilename);
+        const uploadsDir = path.join(__dirname, '../../uploads');
 
-    // --- Logic Lưu file vật lý --- 
-    let storageUrl;
-    try {
-        storageUrl = await uploadFileToCloud(file.path, file.originalname);
-    } catch (uploadError) {
-        console.error("Lưu file vật lý thất bại:", uploadError);
-        res.status(500);
-        throw new Error('Không thể lưu tệp lên server');
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        try {
+            fs.renameSync(tempFilePath, destinationPath);
+            fileUrl = await uploadFileToCloud(destinationPath, uniqueFilename);
+            originalFilename = file.originalname;
+            fileMimeType = file.mimetype;
+            fileSize = file.size;
+
+            // Nếu type từ body không được cung cấp hoặc không hợp lệ, thử suy luận từ file
+            if (!documentType || documentType.trim() === '' || documentType.toLowerCase() === 'unknown') {
+                const inferredType = path.extname(originalFilename).substring(1).toLowerCase() || 
+                               (fileMimeType ? fileMimeType.split('/')[1] : 'unknown');
+                documentType = inferredType; // Cập nhật documentType với type suy luận được
+            }
+        } catch (error) {
+            console.error('Lỗi lưu file:', error);
+            if (fs.existsSync(tempFilePath)) {
+                try { fs.unlinkSync(tempFilePath); } catch (e) { console.error('Lỗi xóa file tạm:', e); }
+            }
+            res.status(500);
+            throw new Error('Không thể lưu tệp lên server. Chi tiết: ' + error.message);
+        }
+    } else {
+        // Không có file, đảm bảo documentType đã được cung cấp từ body và không rỗng
+        if (!documentType || documentType.trim() === '') {
+            res.status(400);
+            throw new Error('Loại tài liệu là bắt buộc và không được để trống khi không tải tệp lên.');
+        }
     }
-    // --- Kết thúc Lưu file vật lý --- 
+    // --- Kết thúc Xử lý file --- 
+
+    // Đảm bảo documentType không phải là 'unknown' hoặc rỗng sau tất cả các bước
+    if (!documentType || documentType.trim() === '' || documentType.toLowerCase() === 'unknown') {
+        res.status(400);
+        throw new Error('Không thể xác định loại tài liệu. Vui lòng cung cấp loại tài liệu hợp lệ.');
+    }
 
     // Tạo siêu dữ liệu tài liệu trong DB
-    const document = new Document({
+    const documentData = {
         createdBy: req.user._id,
         projectId: projectId || null,
-        title,
-        description,
-        type: path.extname(file.originalname).substring(1).toLowerCase() || file.mimetype.split('/')[1],
-        sizeBytes: file.size,
-        storageUrl: storageUrl,
-        tags: tags ? JSON.parse(tags) : [], // Giả sử tags được gửi dưới dạng chuỗi JSON mảng
-    });
+        title: title.trim(),
+        description: description ? description.trim() : '',
+        type: documentType.toLowerCase(),
+        tags: tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+        fileUrl,
+        originalFilename,
+        mimeType: fileMimeType,
+        fileSize,
+    };
 
+    const document = new Document(documentData);
     const createdDocument = await document.save();
     await createdDocument.populate('createdBy', 'name avatarUrl');
     res.status(201).json(createdDocument);

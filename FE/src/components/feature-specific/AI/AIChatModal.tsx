@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
 import {
   Modal,
   View,
@@ -39,9 +40,18 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ visible, onClose }) => {
     },
   ]);
   const [inputText, setInputText] = useState('');
+  const [isLoadingAiResponse, setIsLoadingAiResponse] = useState(false);
 
-  // Mock function to simulate sending message and getting AI response
-  const handleSendMessage = () => {
+  // IMPORTANT: API Key Management
+  // This is NOT secure for a production app. 
+  // API keys should be managed via a backend or a secure configuration service.
+  const AI_API_KEY = 'AIzaSyBcrSfjwkjZcmk8xk8TCOY1BgCrWMridXc'; // Gemini API Key provided by user
+  // const AI_API_ENDPOINT_OLD = 'https://api.openai.com/v1/chat/completions'; // Example: OpenAI
+  // Using gemini-1.5-flash-latest as it's a newer and recommended model for fast chat.
+  // const AI_API_ENDPOINT_OLD_GEMINI = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${AI_API_KEY}`;
+  const AI_API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${AI_API_KEY}`;
+
+  const handleSendMessage = async () => {
     if (inputText.trim().length === 0) return;
 
     const userMessage: Message = {
@@ -50,18 +60,85 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ visible, onClose }) => {
       sender: 'user',
     };
 
-    setMessages(prevMessages => [...prevMessages, userMessage]);
+    setMessages(prevMessages => [userMessage, ...prevMessages]); // Show user message immediately (inverted list)
     setInputText('');
+    setIsLoadingAiResponse(true);
 
-    // Simulate AI thinking and responding
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      // Construct the request payload for Gemini API
+      const payload = {
+        contents: [
+          {
+            parts: [{ text: userMessage.text }],
+          },
+        ],
+        // Optional: Add generationConfig if needed (e.g., temperature, maxOutputTokens)
+        // generationConfig: {
+        //   temperature: 0.7,
+        //   maxOutputTokens: 256,
+        // },
+      };
+
+      const response = await fetch(AI_API_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // For Gemini, API key is in the URL, no separate Authorization header needed for this basic setup
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: 'Lỗi không xác định từ API Gemini' } }));
+        console.error('Gemini API Error:', response.status, errorData);
+        // Gemini errors are often in errorData.error.message
+        throw new Error(`Lỗi API Gemini: ${response.status} - ${errorData.error?.message || 'Kiểm tra console.'}`);
+      }
+
+      const responseData = await response.json();
+      
+      // Extract the AI's reply from Gemini response
+      // Accessing the text from the first part of the first candidate's content
+      let aiText = 'Xin lỗi, tôi không thể xử lý yêu cầu này.'; // Default error message
+      if (responseData.candidates && responseData.candidates.length > 0 &&
+          responseData.candidates[0].content && responseData.candidates[0].content.parts &&
+          responseData.candidates[0].content.parts.length > 0 && responseData.candidates[0].content.parts[0].text) {
+        aiText = responseData.candidates[0].content.parts[0].text.trim();
+      } else {
+        // Handle cases where the response might be structured differently or be a safety block
+        if (responseData.promptFeedback && responseData.promptFeedback.blockReason) {
+          aiText = `Yêu cầu của bạn đã bị chặn vì: ${responseData.promptFeedback.blockReason}`;
+          if(responseData.promptFeedback.safetyRatings && responseData.promptFeedback.safetyRatings.length > 0) {
+            const blockedCategories = responseData.promptFeedback.safetyRatings
+                                        .filter((rating: any) => rating.blocked)
+                                        .map((rating: any) => rating.category);
+            if (blockedCategories.length > 0) {
+              aiText += ` (Danh mục: ${blockedCategories.join(', ')})`;
+            }
+          }
+        } else {
+            console.warn('Gemini response structure not as expected or empty:', responseData);
+        }
+      }
+
+      const aiMessage: Message = {
         id: Math.random().toString(),
-        text: `AI đang xử lý: "${userMessage.text}". Phản hồi mẫu sẽ được thêm sau.`, // Placeholder response
+        text: aiText,
         sender: 'ai',
       };
-      setMessages(prevMessages => [...prevMessages, aiResponse]);
-    }, 1000);
+      setMessages(prevMessages => [aiMessage, ...prevMessages]);
+
+    } catch (error) {
+      console.error('Error sending message to AI:', error);
+      const errorMessage: Message = {
+        id: Math.random().toString(),
+        text: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
+        sender: 'ai',
+      };
+      setMessages(prevMessages => [errorMessage, ...prevMessages]);
+    } finally {
+      setIsLoadingAiResponse(false);
+    }
   };
 
   const renderMessage = ({ item }: { item: Message }) => (
@@ -119,9 +196,18 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ visible, onClose }) => {
               value={inputText}
               onChangeText={setInputText}
               multiline
+              editable={!isLoadingAiResponse} // Disable input while AI is responding
             />
-            <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-              <Icon name="send" size={24} color={theme.colors.primary} />
+            <TouchableOpacity 
+              style={[styles.sendButton, isLoadingAiResponse && styles.disabledSendButton]} 
+              onPress={handleSendMessage} 
+              disabled={isLoadingAiResponse}
+            >
+              {isLoadingAiResponse ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <Icon name="send" size={24} color={theme.colors.primary} />
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -217,6 +303,9 @@ const getStyles = (theme: any) => StyleSheet.create({
   sendButton: {
     padding: SPACING.sm,
   },
+  disabledSendButton: { // Style for disabled send button
+    opacity: 0.5,
+  }
 });
 
 export default AIChatModal; 
